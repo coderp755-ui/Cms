@@ -1,10 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
-from apps.common.models import BaseModel
+from apps.common.models import BaseTimeStampModelMixin, BaseAuditModelMixin ,SoftDeleteModelMixin
 from django.utils import timezone
 import uuid
 
-class User(AbstractUser, BaseModel):
+class User(AbstractUser, BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin):
     ROLE_CHOICES = [
         ('superadmin', 'Superadmin'),
         ('admin', 'Admin'),
@@ -67,7 +67,7 @@ class User(AbstractUser, BaseModel):
         return self.role == 'student'
 
 
-class UserProfile(BaseModel):
+class UserProfile(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     
     # Basic Info
@@ -101,7 +101,7 @@ class UserProfile(BaseModel):
         verbose_name_plural = "User Profiles"
 
 
-class StudentProfile(BaseModel):
+class StudentProfile(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin):
     user = models.OneToOneField(User, on_delete=models.CASCADE, limit_choices_to={'role': 'student'})
     
     # Academic Info
@@ -135,7 +135,7 @@ class StudentProfile(BaseModel):
         verbose_name_plural = "Student Profiles"
 
 
-class TeacherProfile(BaseModel):
+class TeacherProfile(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin):
     user = models.OneToOneField(User, on_delete=models.CASCADE, limit_choices_to={'role': 'teacher'})
     
     # Professional Info
