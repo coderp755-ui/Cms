@@ -1,8 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 from apps.common.models import BaseTimeStampModelMixin, BaseAuditModelMixin ,SoftDeleteModelMixin
-from django.utils import timezone
-import uuid
 
 class User(AbstractUser, BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin):
     ROLE_CHOICES = [
