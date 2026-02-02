@@ -209,35 +209,24 @@ class ResponseHandlerMixin:
                     serializer = serializer_class(page, many=True, context=context)
 
                 serializer_data = serializer.data
-                response_data = []
-                default_actions = getattr(
-                                            self,
-                                            "available_actions",
-                                            self.permission_utils.user_available_actions(),)
+                response_data = serializer_data  # Simplified without permission actions
                                     
-                for item in serializer_data:
-                    if "actions" not in item or item["actions"] is serializers.empty and item["actions"] is not []:
-                        item = {**item, "actions": default_actions}
-                    response_data.append(item)
-
                 paginated_response = paginator.get_paginated_response(response_data)
                 return self.success_response(
-                    data=paginated_response.data["data"],
+                    data=paginated_response.data.get("data", response_data),
                     message="Success",
-                    meta=paginated_response.data["meta"],
+                    meta=paginated_response.data.get("meta", {}),
                 )
-            # if queryset.count() > 1000:
-            #     return self.error_response(
-            #         message="Please use pagination for large datasets",
-            #         status_code=status.HTTP_400_BAD_REQUEST,
-            #     )
-            # serializer = serializer_class(queryset, many=True, context=context)
-            # actions = getattr(
-            #         self, "available_actions", self.permission_utils.user_available_actions()
-            #     )
-            # response_data = [{**item, "actions": actions} for item in serializer.data]
-            response_data = self.permission_utils.get_per_data_actions(serializer.data)
-            return self.success_response(data=response_data)
+            
+            # Handle non-paginated response
+            try:
+                serializer = serializer_class(
+                    queryset, fields=fields, exclude=exclude, many=True, context=context
+                )
+            except TypeError:
+                serializer = serializer_class(queryset, many=True, context=context)
+            
+            return self.success_response(data=serializer.data)
         except Exception as exc:
             traceback.print_exc() if settings.DEBUG else None
             log_error(exc, model_name=self.__class__.__module__, user=getattr(self.request, "user", None), api=self.request.path)
