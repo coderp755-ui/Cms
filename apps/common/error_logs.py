@@ -1,4 +1,4 @@
-from apps.users.models import ErrorLog, Users
+from apps.acounts.models import User
 
 def log_error(exception: Exception, model_name: str, user: Users = None, api: str = None) -> None:
     """
