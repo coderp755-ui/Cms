@@ -1,17 +1,12 @@
-from django.shortcuts import render
-from django.contrib.auth import authenticate, login, logout
-from django.db import transaction
-from rest_framework import status, permissions
+from rest_framework import permissions
 from rest_framework.decorators import action
-from rest_framework.response import Response
 from apps.common.views import AbstractViewSet
-from apps.common.response.mixins import ResponseHandlerMixin
 from apps.acounts.models import User, UserProfile, StudentProfile, TeacherProfile
 from apps.acounts.Serializers.account_serializers import (
     UserSerializer, 
     UserProfileSerializer, 
     StudentProfileSerializer, 
-    TeacherProfileSerializer
+    TeacherProfileSerializer,
 )
 
 

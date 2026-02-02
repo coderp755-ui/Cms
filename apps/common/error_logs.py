@@ -1,6 +1,6 @@
 from apps.acounts.models import User
 
-def log_error(exception: Exception, model_name: str, user: Users = None, api: str = None) -> None:
+def log_error(exception: Exception, model_name: str, user: User = None, api: str = None) -> None:
     """
     Logs an error to the ErrorLog model without interrupting execution.
 

@@ -1,15 +1,12 @@
-from django.shortcuts import render
-
-# Create your views here.
 from django.core.exceptions import ObjectDoesNotExist
 from django.http import Http404
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_protect
+# from django.utils.decorators import method_decorator
+# from django.views.decorators.csrf import csrf_protect
 
 from rest_framework import status, viewsets
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
-from apps.common.response.mixins import  ResponseHandlerMixin
+from apps.common.response.mixins import ResponseHandlerMixin
 
 from rest_framework.exceptions import MethodNotAllowed
 
@@ -51,17 +48,8 @@ class AbstractViewSet(
 
     def initial(self, request, *args, **kwargs):
         super().initial(request, *args, **kwargs)
-        request = self.request
-        # Only initialize permission utils if we have a valid request and user
-        if request and hasattr(request, "user") and request.user.is_authenticated:
-            try:
-                self.permission_utils = PermissionUtils(request.user, self.model_name, view=self, request=request)
-                self.user_all_permissions = self.permission_utils.get_user_all_permissions()
-                self.available_actions = self.permission_utils.user_available_actions()
-                self.user_module_permissions = self.permission_utils.get_user_model_permissions()
-            except:
-                # Handle cases where PermissionUtils is not available
-                self.permission_utils = None
+        # Skip permission utils for now since it's not defined
+        pass
 
     def dispatch(self, request, *args, **kwargs):
         if request.method.upper() in self.exclude_methods:
@@ -74,28 +62,28 @@ class AbstractViewSet(
             
             if self.pagination_class:
                 page = self.paginate_queryset(queryset)
-                return self.paginated_response(
-                    paginator=self.paginator,
-                    queryset=queryset,
-                    serializer_class=self.get_serializer_class(),
-                    page=page,
-                    context=self.get_serializer_context(),
-                )
+                if page is not None:
+                    serializer = self.get_serializer(page, many=True)
+                    return self.get_paginated_response(serializer.data)
+            
             serializer = self.get_serializer(queryset, many=True)
             return self.success_response(serializer.data)
         except Exception as e:
             return self.exception_response(e)
 
-    # @method_decorator(csrf_protect)
     def create(self, request, *args, **kwargs):
         try:
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            data = serializer.save()
-            data.created_by = request.user if hasattr(request, "user") else None
-            # self.perform_create(serializer)
+            
+            # Save the instance
+            instance = serializer.save()
+            
+            # Set audit fields if they exist
+            if hasattr(instance, 'created_by') and hasattr(request, "user") and request.user.is_authenticated:
+                instance.created_by = request.user
+                instance.save()
 
-            data.save()
             return self.success_response(
                 message=f"{self.model_name} created successfully",
                 data=serializer.data,
@@ -131,7 +119,6 @@ class AbstractViewSet(
         except Exception as e:
             return self.exception_response(e)
 
-    # @method_decorator(csrf_protect)
     def update(self, request, *args, **kwargs):
         try:
             partial = kwargs.pop("partial", False)
@@ -140,17 +127,18 @@ class AbstractViewSet(
                 instance, data=request.data, partial=partial
             )
             serializer.is_valid(raise_exception=True)
-            data = serializer.save()
-            data.updated_by = request.user if hasattr(request, "user") else None
-            data.save()
-            # self.perform_update(serializer)
+            
+            # Save the instance
+            updated_instance = serializer.save()
+            
+            # Set audit fields if they exist
+            if hasattr(updated_instance, 'updated_by') and hasattr(request, "user") and request.user.is_authenticated:
+                updated_instance.updated_by = request.user
+                updated_instance.save()
 
-            # if getattr(instance, "_prefetched_objects_cache", None):
-            #     # If 'prefetch_related' has been applied to a queryset, we need to
-            #     # forcibly invalidate the prefetch cache on the instance.
-            #     instance._prefetched_objects_cache = {}
             return self.success_response(
-                message=f"{self.model_name} updated successfully", data=serializer.data
+                message=f"{self.model_name} updated successfully", 
+                data=serializer.data
             )
         except (
             ObjectDoesNotExist,
@@ -163,23 +151,25 @@ class AbstractViewSet(
         except Exception as e:
             return self.exception_response(e)
 
-    # @method_decorator(csrf_protect)
     def destroy(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
-            if hasattr(instance, "is_deleted"):
-                instance.delete(user = request.user)
+            
+            # Check if soft delete is available
+            if hasattr(instance, "soft_delete"):
+                instance.soft_delete()
+            elif hasattr(instance, "is_deleted"):
+                instance.is_deleted = True
+                instance.save()
             elif hasattr(instance, "is_active"):
                 instance.is_active = False
+                instance.save()
             else:
-                return self.error_response(
-                    message=f"{self.model_name} Couldnt be deleted"
-                )
-            instance.save()
-            # self.perform_destroy(instance)
+                # Hard delete as fallback
+                instance.delete()
+            
             return self.success_response(
-                message=f"{self.model_name} deleted successfully",
-                # status_code=status.HTTP_204_NO_CONTENT,
+                message=f"{self.model_name} deleted successfully"
             )
         except (
             ObjectDoesNotExist,
