@@ -106,7 +106,6 @@ class StudentProfile(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteMod
     
     # Academic Info
     grade_level = models.CharField(max_length=20)
-    section = models.CharField(max_length=10, blank=True)
     roll_number = models.CharField(max_length=20, blank=True)
     admission_date = models.DateField()
     

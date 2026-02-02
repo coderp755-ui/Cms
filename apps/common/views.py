@@ -9,7 +9,7 @@ from django.views.decorators.csrf import csrf_protect
 from rest_framework import status, viewsets
 from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
 
-from common_utils.response.mixins import  ResponseHandlerMixin
+from apps.common.response.mixins import  ResponseHandlerMixin
 
 from rest_framework.exceptions import MethodNotAllowed
 
@@ -39,20 +39,29 @@ class AbstractViewSet(
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.model_name = getattr(
-            self, "model_name", self.get_queryset().model.__name__
-        )
+        # Only set model_name if queryset is available
+        try:
+            self.model_name = getattr(
+                self, "model_name", self.get_queryset().model.__name__
+            )
+        except:
+            self.model_name = getattr(self, "model_name", "Model")
         self.viewset_name = self.__class__.__name__
         self.permission_utils = None
 
     def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)
         request = self.request
-        self.permission_utils = PermissionUtils(request.user, self.model_name, view=self, request=request)
+        # Only initialize permission utils if we have a valid request and user
         if request and hasattr(request, "user") and request.user.is_authenticated:
-            self.user_all_permissions = self.permission_utils.get_user_all_permissions()
-            self.available_actions = self.permission_utils.user_available_actions()
-            self.user_module_permissions = self.permission_utils.get_user_model_permissions()
-        return super().initial(request, *args, **kwargs)
+            try:
+                self.permission_utils = PermissionUtils(request.user, self.model_name, view=self, request=request)
+                self.user_all_permissions = self.permission_utils.get_user_all_permissions()
+                self.available_actions = self.permission_utils.user_available_actions()
+                self.user_module_permissions = self.permission_utils.get_user_model_permissions()
+            except:
+                # Handle cases where PermissionUtils is not available
+                self.permission_utils = None
 
     def dispatch(self, request, *args, **kwargs):
         if request.method.upper() in self.exclude_methods:
