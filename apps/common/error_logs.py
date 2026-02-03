@@ -6,21 +6,24 @@ class ErrorLog(models.Model):
     """
     Model to store error logs for debugging and monitoring.
     """
+
     error_message = models.TextField()
     model_name = models.CharField(max_length=100, blank=True, null=True)
     api = models.CharField(max_length=200, blank=True, null=True)
     user = models.ForeignKey(User, on_delete=models.SET_NULL, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
-        db_table = 'error_logs'
-        ordering = ['-created_at']
-    
+        db_table = "error_logs"
+        ordering = ["-created_at"]
+
     def __str__(self):
         return f"Error in {self.model_name or 'Unknown'} - {self.created_at}"
 
 
-def log_error(exception: Exception, model_name: str, user: User = None, api: str = None) -> None:
+def log_error(
+    exception: Exception, model_name: str, user: User = None, api: str = None
+) -> None:
     """
     Logs an error to the ErrorLog model without interrupting execution.
 
@@ -32,10 +35,7 @@ def log_error(exception: Exception, model_name: str, user: User = None, api: str
     """
     try:
         ErrorLog.objects.create(
-            error_message=str(exception),
-            model_name=model_name,
-            api=api,
-            user=user
+            error_message=str(exception), model_name=model_name, api=api, user=user
         )
     except Exception as log_exc:
         print(f"Failed to log error: {log_exc}")

@@ -1,4 +1,4 @@
-from apps.common.views import AbstractViewSet 
+from apps.common.views import AbstractViewSet
 from apps.classes.Serializers.CourseSerializers import CourseSerializer
 from apps.classes.Serializers.SectionSerializer import SectionSerializer
 from apps.classes.Serializers.LessonSerializers import LessonSerializer

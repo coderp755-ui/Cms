@@ -4,29 +4,28 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('classes', '0002_alter_course_created_at_alter_lesson_created_at'),
+        ("classes", "0002_alter_course_created_at_alter_lesson_created_at"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='lesson',
-            name='video_url',
+            model_name="lesson",
+            name="video_url",
         ),
         migrations.AddField(
-            model_name='lesson',
-            name='file',
-            field=models.FileField(blank=True, null=True, upload_to='lessons/files/'),
+            model_name="lesson",
+            name="file",
+            field=models.FileField(blank=True, null=True, upload_to="lessons/files/"),
         ),
         migrations.AddField(
-            model_name='lesson',
-            name='is_active',
+            model_name="lesson",
+            name="is_active",
             field=models.BooleanField(default=True),
         ),
         migrations.AddField(
-            model_name='section',
-            name='is_active',
+            model_name="section",
+            name="is_active",
             field=models.BooleanField(default=True),
         ),
     ]

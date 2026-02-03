@@ -6,7 +6,6 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
@@ -15,68 +14,266 @@ class Migration(migrations.Migration):
 
     operations = [
         migrations.CreateModel(
-            name='Course',
+            name="Course",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('updated_at', models.DateTimeField(auto_now=True, help_text='Timestamp when the record was last updated')),
-                ('is_deleted', models.BooleanField(default=False)),
-                ('deleted_at', models.DateTimeField(blank=True, null=True)),
-                ('restored_at', models.DateTimeField(blank=True, null=True)),
-                ('title', models.CharField(max_length=200)),
-                ('description', models.TextField()),
-                ('course_type', models.CharField(choices=[('IELTS', 'IELTS'), ('PTE', 'PTE')], max_length=10)),
-                ('is_active', models.BooleanField(default=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('created_by', models.ForeignKey(blank=True, help_text='Foreign key referencing the user who created the record.', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='%(class)s_created_by', to=settings.AUTH_USER_MODEL)),
-                ('deleted_by', models.ForeignKey(blank=True, help_text='Foreign key referencing the user who deleted the record.', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='%(class)s_deleted_by', to=settings.AUTH_USER_MODEL)),
-                ('restored_by', models.ForeignKey(blank=True, help_text='Foreign key referencing the user who restored the record.', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='%(class)s_restored_by', to=settings.AUTH_USER_MODEL)),
-                ('updated_by', models.ForeignKey(blank=True, help_text='Foreign key referencing the user who updated the record.', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='%(class)s_updated_by', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(
+                        auto_now=True,
+                        help_text="Timestamp when the record was last updated",
+                    ),
+                ),
+                ("is_deleted", models.BooleanField(default=False)),
+                ("deleted_at", models.DateTimeField(blank=True, null=True)),
+                ("restored_at", models.DateTimeField(blank=True, null=True)),
+                ("title", models.CharField(max_length=200)),
+                ("description", models.TextField()),
+                (
+                    "course_type",
+                    models.CharField(
+                        choices=[("IELTS", "IELTS"), ("PTE", "PTE")], max_length=10
+                    ),
+                ),
+                ("is_active", models.BooleanField(default=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True,
+                        help_text="Foreign key referencing the user who created the record.",
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="%(class)s_created_by",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "deleted_by",
+                    models.ForeignKey(
+                        blank=True,
+                        help_text="Foreign key referencing the user who deleted the record.",
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="%(class)s_deleted_by",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "restored_by",
+                    models.ForeignKey(
+                        blank=True,
+                        help_text="Foreign key referencing the user who restored the record.",
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="%(class)s_restored_by",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "updated_by",
+                    models.ForeignKey(
+                        blank=True,
+                        help_text="Foreign key referencing the user who updated the record.",
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="%(class)s_updated_by",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='Section',
+            name="Section",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True, help_text='Timestamp when the record was created')),
-                ('updated_at', models.DateTimeField(auto_now=True, help_text='Timestamp when the record was last updated')),
-                ('is_deleted', models.BooleanField(default=False)),
-                ('deleted_at', models.DateTimeField(blank=True, null=True)),
-                ('restored_at', models.DateTimeField(blank=True, null=True)),
-                ('name', models.CharField(choices=[('listening', 'Listening'), ('reading', 'Reading'), ('writing', 'Writing'), ('speaking', 'Speaking')], max_length=20)),
-                ('course', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='sections', to='classes.course')),
-                ('created_by', models.ForeignKey(blank=True, help_text='Foreign key referencing the user who created the record.', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='%(class)s_created_by', to=settings.AUTH_USER_MODEL)),
-                ('deleted_by', models.ForeignKey(blank=True, help_text='Foreign key referencing the user who deleted the record.', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='%(class)s_deleted_by', to=settings.AUTH_USER_MODEL)),
-                ('restored_by', models.ForeignKey(blank=True, help_text='Foreign key referencing the user who restored the record.', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='%(class)s_restored_by', to=settings.AUTH_USER_MODEL)),
-                ('updated_by', models.ForeignKey(blank=True, help_text='Foreign key referencing the user who updated the record.', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='%(class)s_updated_by', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "created_at",
+                    models.DateTimeField(
+                        auto_now_add=True,
+                        help_text="Timestamp when the record was created",
+                    ),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(
+                        auto_now=True,
+                        help_text="Timestamp when the record was last updated",
+                    ),
+                ),
+                ("is_deleted", models.BooleanField(default=False)),
+                ("deleted_at", models.DateTimeField(blank=True, null=True)),
+                ("restored_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "name",
+                    models.CharField(
+                        choices=[
+                            ("listening", "Listening"),
+                            ("reading", "Reading"),
+                            ("writing", "Writing"),
+                            ("speaking", "Speaking"),
+                        ],
+                        max_length=20,
+                    ),
+                ),
+                (
+                    "course",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="sections",
+                        to="classes.course",
+                    ),
+                ),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True,
+                        help_text="Foreign key referencing the user who created the record.",
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="%(class)s_created_by",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "deleted_by",
+                    models.ForeignKey(
+                        blank=True,
+                        help_text="Foreign key referencing the user who deleted the record.",
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="%(class)s_deleted_by",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "restored_by",
+                    models.ForeignKey(
+                        blank=True,
+                        help_text="Foreign key referencing the user who restored the record.",
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="%(class)s_restored_by",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "updated_by",
+                    models.ForeignKey(
+                        blank=True,
+                        help_text="Foreign key referencing the user who updated the record.",
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="%(class)s_updated_by",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='Lesson',
+            name="Lesson",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('updated_at', models.DateTimeField(auto_now=True, help_text='Timestamp when the record was last updated')),
-                ('is_deleted', models.BooleanField(default=False)),
-                ('deleted_at', models.DateTimeField(blank=True, null=True)),
-                ('restored_at', models.DateTimeField(blank=True, null=True)),
-                ('title', models.CharField(max_length=200)),
-                ('video_url', models.URLField(blank=True, null=True)),
-                ('content', models.TextField()),
-                ('order', models.PositiveIntegerField(default=1)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('created_by', models.ForeignKey(blank=True, help_text='Foreign key referencing the user who created the record.', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='%(class)s_created_by', to=settings.AUTH_USER_MODEL)),
-                ('deleted_by', models.ForeignKey(blank=True, help_text='Foreign key referencing the user who deleted the record.', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='%(class)s_deleted_by', to=settings.AUTH_USER_MODEL)),
-                ('restored_by', models.ForeignKey(blank=True, help_text='Foreign key referencing the user who restored the record.', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='%(class)s_restored_by', to=settings.AUTH_USER_MODEL)),
-                ('updated_by', models.ForeignKey(blank=True, help_text='Foreign key referencing the user who updated the record.', null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='%(class)s_updated_by', to=settings.AUTH_USER_MODEL)),
-                ('section', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='lessons', to='classes.section')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(
+                        auto_now=True,
+                        help_text="Timestamp when the record was last updated",
+                    ),
+                ),
+                ("is_deleted", models.BooleanField(default=False)),
+                ("deleted_at", models.DateTimeField(blank=True, null=True)),
+                ("restored_at", models.DateTimeField(blank=True, null=True)),
+                ("title", models.CharField(max_length=200)),
+                ("video_url", models.URLField(blank=True, null=True)),
+                ("content", models.TextField()),
+                ("order", models.PositiveIntegerField(default=1)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True,
+                        help_text="Foreign key referencing the user who created the record.",
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="%(class)s_created_by",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "deleted_by",
+                    models.ForeignKey(
+                        blank=True,
+                        help_text="Foreign key referencing the user who deleted the record.",
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="%(class)s_deleted_by",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "restored_by",
+                    models.ForeignKey(
+                        blank=True,
+                        help_text="Foreign key referencing the user who restored the record.",
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="%(class)s_restored_by",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "updated_by",
+                    models.ForeignKey(
+                        blank=True,
+                        help_text="Foreign key referencing the user who updated the record.",
+                        null=True,
+                        on_delete=django.db.models.deletion.DO_NOTHING,
+                        related_name="%(class)s_updated_by",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "section",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="lessons",
+                        to="classes.section",
+                    ),
+                ),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
     ]
