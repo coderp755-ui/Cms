@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.urls import include, path
 from urls.Accounts_urls import urlpatterns  as Accounts_urls
+from urls.Classes_urls import urlpatterns as Classes_urls
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
@@ -26,7 +27,8 @@ urlpatterns = [
         SpectacularRedocView.as_view(url_name="schema"),
         name="redoc",
     ),
-    path("", include(Accounts_urls))
+    path("", include(Accounts_urls)),
+    path("",include(Classes_urls))
 ]
 
 if settings.DEBUG:
