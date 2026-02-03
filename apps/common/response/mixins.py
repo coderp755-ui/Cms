@@ -1,4 +1,3 @@
-
 import traceback
 from django.core.exceptions import MultipleObjectsReturned, ObjectDoesNotExist
 import django.db
@@ -11,6 +10,7 @@ from rest_framework.response import Response
 
 from apps.common.error_logs import log_error
 from django.conf import settings
+
 
 class ResponseHandlerMixin:
     """Standardized response handling for DRF APIViews.
@@ -26,7 +26,7 @@ class ResponseHandlerMixin:
                     return self.success_response(data=data, message="Data retrieved successfully")
                 except Exception as e:
                     return self.exception_response(e)
-    
+
         under paginated_response the user permissions for the model are also added to each item in the response
     """
 
@@ -65,8 +65,12 @@ class ResponseHandlerMixin:
     def exception_response(self, exc, message=None):
         """Handle common exceptions with appropriate responses."""
 
-        module = self.__class__.__module__ if hasattr(self, '__class__') else 'unknown_module'
-        api = self.request.path if hasattr(self, 'request') else None
+        module = (
+            self.__class__.__module__
+            if hasattr(self, "__class__")
+            else "unknown_module"
+        )
+        api = self.request.path if hasattr(self, "request") else None
 
         exception_handlers = {
             ValidationError: lambda error: self.error_response(
@@ -175,7 +179,12 @@ class ResponseHandlerMixin:
         }
 
         handler = exception_handlers.get(type(exc))
-        log_error(str(traceback.format_exc()), model_name=module, user=getattr(self.request, "user", None), api=api)
+        log_error(
+            str(traceback.format_exc()),
+            model_name=module,
+            user=getattr(self.request, "user", None),
+            api=api,
+        )
         if handler:
             return handler(exc)
         traceback.print_exc() if settings.DEBUG else None
@@ -194,7 +203,7 @@ class ResponseHandlerMixin:
         context=None,
         fields=None,
         exclude=None,
-    ):  
+    ):
         """Handle paginated responses consistently using CustomPagination."""
         try:
             context = context or self.get_serializer_context()
@@ -210,14 +219,14 @@ class ResponseHandlerMixin:
 
                 serializer_data = serializer.data
                 response_data = serializer_data  # Simplified without permission actions
-                                    
+
                 paginated_response = paginator.get_paginated_response(response_data)
                 return self.success_response(
                     data=paginated_response.data.get("data", response_data),
                     message="Success",
                     meta=paginated_response.data.get("meta", {}),
                 )
-            
+
             # Handle non-paginated response
             try:
                 serializer = serializer_class(
@@ -225,10 +234,14 @@ class ResponseHandlerMixin:
                 )
             except TypeError:
                 serializer = serializer_class(queryset, many=True, context=context)
-            
+
             return self.success_response(data=serializer.data)
         except Exception as exc:
             traceback.print_exc() if settings.DEBUG else None
-            log_error(exc, model_name=self.__class__.__module__, user=getattr(self.request, "user", None), api=self.request.path)
+            log_error(
+                exc,
+                model_name=self.__class__.__module__,
+                user=getattr(self.request, "user", None),
+                api=self.request.path,
+            )
             return self.exception_response(exc)
-

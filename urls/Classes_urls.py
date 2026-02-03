@@ -8,10 +8,10 @@ from apps.classes.views import (
 
 # Create router and register viewsets
 router = DefaultRouter()
-router.register(r'course', CourseViwset, basename='course')
-router.register(r'lesson', LessonViwset, basename='lesson')
-router.register(r'sections', SectionViwset, basename='sections')
+router.register(r"course", CourseViwset, basename="course")
+router.register(r"lesson", LessonViwset, basename="lesson")
+router.register(r"sections", SectionViwset, basename="sections")
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]

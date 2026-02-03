@@ -2,16 +2,17 @@ from rest_framework.pagination import PageNumberPagination, LimitOffsetPaginatio
 from rest_framework.response import Response
 from django.conf import settings
 
+
 class CustomDefaultPagination(PageNumberPagination):
     """
     Common pagination used across all modules.
     """
+
     page_number_query = "page"
     page_size_query_param = "per_page"
-    page_size = getattr(settings, 'DEFAULT_PAGE_SIZE', 10)
-    max_page_size = getattr(settings, 'MAX_PAGE_SIZE', 100)
+    page_size = getattr(settings, "DEFAULT_PAGE_SIZE", 10)
+    max_page_size = getattr(settings, "MAX_PAGE_SIZE", 100)
 
-    
     def get_paginated_response(self, data):
         return Response(
             {

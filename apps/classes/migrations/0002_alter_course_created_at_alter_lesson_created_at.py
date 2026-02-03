@@ -4,20 +4,23 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('classes', '0001_initial'),
+        ("classes", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='course',
-            name='created_at',
-            field=models.DateTimeField(auto_now_add=True, help_text='Timestamp when the record was created'),
+            model_name="course",
+            name="created_at",
+            field=models.DateTimeField(
+                auto_now_add=True, help_text="Timestamp when the record was created"
+            ),
         ),
         migrations.AlterField(
-            model_name='lesson',
-            name='created_at',
-            field=models.DateTimeField(auto_now_add=True, help_text='Timestamp when the record was created'),
+            model_name="lesson",
+            name="created_at",
+            field=models.DateTimeField(
+                auto_now_add=True, help_text="Timestamp when the record was created"
+            ),
         ),
     ]

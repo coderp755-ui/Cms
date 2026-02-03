@@ -31,8 +31,9 @@ class AbstractViewSet(
             permission_classes = [CustomPermissionClass]
 
     """
-    exclude_methods = []          # class-level
-    exclude_actions = []          # optional, explained below
+
+    exclude_methods = []  # class-level
+    exclude_actions = []  # optional, explained below
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -41,8 +42,8 @@ class AbstractViewSet(
             self.model_name = getattr(
                 self, "model_name", self.get_queryset().model.__name__
             )
-        except:
-            self.model_name = getattr(self, "model_name", "Model")
+        except Exception as e:
+            self.model_name = getattr(self, "model_name", f"Model :{str(e)}")
         self.viewset_name = self.__class__.__name__
         self.permission_utils = None
 
@@ -59,13 +60,13 @@ class AbstractViewSet(
     def list(self, request, *args, **kwargs):
         try:
             queryset = self.filter_queryset(self.get_queryset())
-            
+
             if self.pagination_class:
                 page = self.paginate_queryset(queryset)
                 if page is not None:
                     serializer = self.get_serializer(page, many=True)
                     return self.get_paginated_response(serializer.data)
-            
+
             serializer = self.get_serializer(queryset, many=True)
             return self.success_response(serializer.data)
         except Exception as e:
@@ -75,12 +76,16 @@ class AbstractViewSet(
         try:
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            
+
             # Save the instance
             instance = serializer.save()
-            
+
             # Set audit fields if they exist
-            if hasattr(instance, 'created_by') and hasattr(request, "user") and request.user.is_authenticated:
+            if (
+                hasattr(instance, "created_by")
+                and hasattr(request, "user")
+                and request.user.is_authenticated
+            ):
                 instance.created_by = request.user
                 instance.save()
 
@@ -127,18 +132,21 @@ class AbstractViewSet(
                 instance, data=request.data, partial=partial
             )
             serializer.is_valid(raise_exception=True)
-            
+
             # Save the instance
             updated_instance = serializer.save()
-            
+
             # Set audit fields if they exist
-            if hasattr(updated_instance, 'updated_by') and hasattr(request, "user") and request.user.is_authenticated:
+            if (
+                hasattr(updated_instance, "updated_by")
+                and hasattr(request, "user")
+                and request.user.is_authenticated
+            ):
                 updated_instance.updated_by = request.user
                 updated_instance.save()
 
             return self.success_response(
-                message=f"{self.model_name} updated successfully", 
-                data=serializer.data
+                message=f"{self.model_name} updated successfully", data=serializer.data
             )
         except (
             ObjectDoesNotExist,
@@ -154,7 +162,7 @@ class AbstractViewSet(
     def destroy(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
-            
+
             # Check if soft delete is available
             if hasattr(instance, "soft_delete"):
                 instance.soft_delete()
@@ -167,7 +175,7 @@ class AbstractViewSet(
             else:
                 # Hard delete as fallback
                 instance.delete()
-            
+
             return self.success_response(
                 message=f"{self.model_name} deleted successfully"
             )
