@@ -31,12 +31,6 @@ class UserSerializer(DynamicFieldsModelSerializer):
             "last_login",
             "password",
             "password_confirm",
-            "created_at",
-            "updated_at",
-            "created_by",
-            "updated_by",
-            "is_deleted",
-            "deleted_at",
         ]
         read_only_fields = [
             "created_at",
@@ -105,10 +99,6 @@ class UserProfileSerializer(DynamicFieldsModelSerializer):
             "facebook_url",
             "linkedin_url",
             "is_active_profile",
-            "created_at",
-            "updated_at",
-            "created_by",
-            "updated_by",
         ]
         read_only_fields = ["created_at", "updated_at", "created_by", "updated_by"]
 
@@ -139,10 +129,6 @@ class StudentProfileSerializer(DynamicFieldsModelSerializer):
             "previous_school",
             "medical_conditions",
             "extracurricular_activities",
-            "created_at",
-            "updated_at",
-            "created_by",
-            "updated_by",
         ]
         read_only_fields = ["created_at", "updated_at", "created_by", "updated_by"]
 
@@ -181,10 +167,6 @@ class TeacherProfileSerializer(DynamicFieldsModelSerializer):
             "subjects_teaching",
             "certifications",
             "training_completed",
-            "created_at",
-            "updated_at",
-            "created_by",
-            "updated_by",
         ]
         read_only_fields = ["created_at", "updated_at", "created_by", "updated_by"]
 
@@ -196,3 +178,21 @@ class TeacherProfileSerializer(DynamicFieldsModelSerializer):
         except User.DoesNotExist:
             raise serializers.ValidationError("User does not exist")
         return value
+
+
+class Self(serializers.Serializer):
+    def to_representation(self, instance):
+        request = self.context.get("request")
+        if request and hasattr(request, "user"):
+            user = request.user
+            return {
+                "id": user.id,
+                "username": user.username,
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "role": user.role,
+                "student_id": user.student_id if user.role == "student" else None,
+                "employee_id": user.employee_id if user.role == "teacher" else None,
+            }
+        return {}

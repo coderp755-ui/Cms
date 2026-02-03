@@ -7,6 +7,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 from apps.common.views import AbstractViewSet
 from apps.acounts.models import User, UserProfile, StudentProfile, TeacherProfile
 from apps.acounts.Serializers.account_serializers import (
+    Self,
     UserSerializer,
     UserProfileSerializer,
     StudentProfileSerializer,
@@ -54,17 +55,6 @@ class UserViewSet(AbstractViewSet):
             return queryset.filter(id=user.id)
 
         return queryset.none()
-
-    @action(detail=False, methods=["get"])
-    def me(self, request):
-        """Get current user's profile information."""
-        try:
-            serializer = self.get_serializer(request.user)
-            return self.success_response(
-                message="User profile retrieved successfully", data=serializer.data
-            )
-        except Exception as e:
-            return self.exception_response(e)
 
     @action(detail=False, methods=["post"])
     def change_password(self, request):
@@ -328,6 +318,41 @@ class LogoutView(APIView):
                     "data": str(e),
                 },
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return Response(
+                {
+                    "success": False,
+                    "message": f"An error occurred: {str(e)}",
+                    "data": None,
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+    
+class SelfView(APIView):
+    """
+    View to retrieve the authenticated user's own information.
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """
+        Retrieve the authenticated user's information.
+        """
+        try:
+            user = request.user
+            serializer = Self(context={"request": request})
+            data = serializer.to_representation(user)
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "User information retrieved successfully",
+                    "data": data,
+                },
+                status=status.HTTP_200_OK,
             )
         except Exception as e:
             return Response(

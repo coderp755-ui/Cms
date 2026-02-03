@@ -6,6 +6,8 @@ from apps.acounts.views import (
     StudentProfileViewSet,
     TeacherProfileViewSet,
     LogoutView,
+    SelfView,
+
 )
 
 # Create router and register viewsets
@@ -18,4 +20,5 @@ router.register(r"teachers", TeacherProfileViewSet, basename="teachers")
 urlpatterns = [
     path("", include(router.urls)),
     path("logout/", LogoutView.as_view(), name="logout"),
+    path("self/", SelfView.as_view(), name="self"),
 ]
