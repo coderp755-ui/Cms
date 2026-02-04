@@ -28,6 +28,7 @@ class UserSerializer(DynamicFieldsModelSerializer):
             "student_id",
             "is_active",
             "date_joined",
+            "is_deleted",
             "last_login",
             "password",
             "password_confirm",
@@ -37,7 +38,6 @@ class UserSerializer(DynamicFieldsModelSerializer):
             "updated_at",
             "created_by",
             "updated_by",
-            "is_deleted",
             "deleted_at",
             "employee_id",
             "student_id",
@@ -193,7 +193,9 @@ class Self(serializers.Serializer):
                 "role": user.role,
                 "is_active": user.is_active,
                 "student_id": user.student_id if user.role == "student" else None,
-                "employee_id": user.employee_id if user.role in ["superadmin", "admin", "teacher"] else None,
+                "employee_id": user.employee_id
+                if user.role in ["superadmin", "admin", "teacher"]
+                else None,
                 "date_joined": user.date_joined,
                 "last_login": user.last_login,
             }

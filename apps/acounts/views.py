@@ -20,7 +20,6 @@ from apps.acounts.Serializers.account_serializers import (
     TeacherProfileSerializer,
 )
 from apps.acounts.permissions import (
-    IsSuperAdmin,
     IsAdmin,
     IsTeacher,
 )
@@ -37,14 +36,16 @@ class UserViewSet(AbstractViewSet):
     - Student: Can view and update only their own profile
     """
 
-    queryset = User.objects.all()   
+    queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         """Filter queryset based on user role and permissions."""
         # Exclude superadmin and deleted users by default
-        queryset = super().get_queryset().exclude(role="superadmin").filter(is_deleted=False)
+        queryset = (
+            super().get_queryset().exclude(role="superadmin").filter(is_deleted=False)
+        )
 
         if not hasattr(self, "request") or not self.request:
             return queryset

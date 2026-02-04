@@ -30,7 +30,7 @@ class CourseViewSet(AbstractViewSet):
             permission_classes = [permissions.IsAuthenticated]
         else:
             # Only superadmin, admin, teacher can create/update/delete
-            permission_classes = [IsTeacher,IsSuperAdmin,IsAdmin]
+            permission_classes = [IsTeacher, IsSuperAdmin, IsAdmin]
 
         return [permission() for permission in permission_classes]
 
@@ -54,7 +54,7 @@ class SectionViewSet(AbstractViewSet):
             permission_classes = [permissions.IsAuthenticated]
         else:
             # Only superadmin, admin, teacher can create/update/delete
-            permission_classes = [IsTeacher,IsSuperAdmin,IsAdmin]
+            permission_classes = [IsTeacher, IsSuperAdmin, IsAdmin]
 
         return [permission() for permission in permission_classes]
 
@@ -78,6 +78,6 @@ class LessonViewSet(AbstractViewSet):
             permission_classes = [permissions.IsAuthenticated]
         else:
             # Only superadmin, admin, teacher can create/update/delete
-           permission_classes = [IsTeacher,IsSuperAdmin,IsAdmin]
+            permission_classes = [IsTeacher, IsSuperAdmin, IsAdmin]
 
         return [permission() for permission in permission_classes]

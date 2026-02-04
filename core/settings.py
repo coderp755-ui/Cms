@@ -73,6 +73,12 @@ CORS_ALLOWED_ORIGINS = [
     "http://192.168.1.10:5173",
 ]
 
+# Allow credentials for CORS
+CORS_ALLOW_CREDENTIALS = True
+
+# Allow all origins in development (remove in production)
+CORS_ALLOW_ALL_ORIGINS = True
+
 INTERNAL_IPS = [
     "127.0.0.1",
 ]
@@ -173,3 +179,10 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = "static/"
+
+# Media files (User uploaded files)
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media/"
+
+# Default primary key field type
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
