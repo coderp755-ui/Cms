@@ -7,7 +7,6 @@ from apps.acounts.views import (
     TeacherProfileViewSet,
     LogoutView,
     SelfView,
-
 )
 
 # Create router and register viewsets

@@ -4,25 +4,33 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('classes', '0003_remove_lesson_video_url_lesson_file_lesson_is_active_and_more'),
+        (
+            "classes",
+            "0003_remove_lesson_video_url_lesson_file_lesson_is_active_and_more",
+        ),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='course',
-            name='id',
-            field=models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
+            model_name="course",
+            name="id",
+            field=models.AutoField(
+                auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+            ),
         ),
         migrations.AlterField(
-            model_name='lesson',
-            name='id',
-            field=models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
+            model_name="lesson",
+            name="id",
+            field=models.AutoField(
+                auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+            ),
         ),
         migrations.AlterField(
-            model_name='section',
-            name='id',
-            field=models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID'),
+            model_name="section",
+            name="id",
+            field=models.AutoField(
+                auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+            ),
         ),
     ]

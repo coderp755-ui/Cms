@@ -1,15 +1,13 @@
 """
-Updated views.py with role-based permissions.
-
-This file includes:
-- Custom permission classes applied to each ViewSet
-- Role hierarchy enforcement
-- Object-level permissions
+Views with role-based permissions using AbstractViewSet.
+AbstractViewSet handles: list, create, retrieve, update, destroy, created_by, updated_by
 """
+
 from rest_framework import permissions, status
 from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from apps.common.views import AbstractViewSet
@@ -22,114 +20,140 @@ from apps.acounts.Serializers.account_serializers import (
     TeacherProfileSerializer,
 )
 from apps.acounts.permissions import (
-    UserManagementPermission,
-    ProfilePermission,
-    CanCreateUser,
-    CanDeleteUser,
     IsSuperAdmin,
     IsAdmin,
+    IsTeacher,
 )
 
 
 class UserViewSet(AbstractViewSet):
     """
     ViewSet for User model with CRUD operations and role-based functionality.
-    
+
     Permissions:
-    - Superadmin: Full access to all users
-    - Admin: Can manage teachers and students (cannot manage superadmins)
-    - Teacher: Can view students and teachers only
+    - Superadmin: Full access - can add/edit/delete all users
+    - Admin: Can add/edit/delete teachers and students (cannot manage superadmins)
+    - Teacher: Can add students only, can view students and teachers
     - Student: Can view and update only their own profile
     """
 
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    
-    def get_permissions(self):
-        """
-        Apply different permissions based on action.
-        """
-        if self.action == 'create':
-            permission_classes = [permissions.IsAuthenticated, CanCreateUser]
-        elif self.action == 'destroy':
-            permission_classes = [permissions.IsAuthenticated, CanDeleteUser]
-        else:
-            permission_classes = [permissions.IsAuthenticated, UserManagementPermission]
-        
-        return [permission() for permission in permission_classes]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         """Filter queryset based on user role and permissions."""
         queryset = super().get_queryset()
 
-        # Check if request exists (for schema generation)
         if not hasattr(self, "request") or not self.request:
             return queryset
 
         user = self.request.user
-
-        # Check if user is authenticated
         if not user or not user.is_authenticated:
             return queryset.none()
 
-        # Superadmin can see all users
         if user.role == "superadmin":
             return queryset
-
-        # Admin can see all except superadmin
         elif user.role == "admin":
             return queryset.exclude(role="superadmin")
-
-        # Teachers can see students and other teachers
         elif user.role == "teacher":
             return queryset.filter(role__in=["student", "teacher"])
-
-        # Students can only see themselves
         elif user.role == "student":
             return queryset.filter(id=user.id)
 
         return queryset.none()
-    
+
     def perform_create(self, serializer):
-        """
-        Validate role hierarchy when creating user.
-        Prevent admin from creating superadmin.
-        """
+        """Validate role hierarchy when creating user."""
         user = self.request.user
-        target_role = self.request.data.get('role')
-        
-        # Admin cannot create superadmin
-        if user.role == 'admin' and target_role == 'superadmin':
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Admins cannot create superadmin users")
-        
-        serializer.save(created_by=user)
-    
+        target_role = self.request.data.get("role")
+
+        # Superadmin can create anyone
+        if user.role == "superadmin":
+            super().perform_create(serializer)
+            return
+
+        # Admin can create teacher and student only
+        if user.role == "admin":
+            if target_role == "superadmin":
+                raise PermissionDenied("Admins cannot create superadmin users")
+            super().perform_create(serializer)
+            return
+
+        # Teacher can create student only
+        if user.role == "teacher":
+            if target_role != "student":
+                raise PermissionDenied("Teachers can only create student users")
+            super().perform_create(serializer)
+            return
+
+        # Student cannot create users
+        raise PermissionDenied("Students cannot create users")
+
     def perform_update(self, serializer):
-        """Set updated_by when updating user."""
-        serializer.save(updated_by=self.request.user)
-    
-    def perform_destroy(self, instance):
-        """
-        Validate role hierarchy when deleting user.
-        Use soft delete from BaseModel.
-        """
+        """Validate role hierarchy when updating user."""
         user = self.request.user
-        
-        # Prevent admin from deleting superadmin or other admins
-        if user.role == 'admin' and instance.role in ['superadmin', 'admin']:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied(f"Admins cannot delete {instance.role} users")
-        
+        instance = self.get_object()
+
+        # Superadmin can update anyone
+        if user.role == "superadmin":
+            super().perform_update(serializer)
+            return
+
+        # Admin cannot update superadmin
+        if user.role == "admin":
+            if instance.role == "superadmin":
+                raise PermissionDenied("Admins cannot update superadmin users")
+            super().perform_update(serializer)
+            return
+
+        # Teacher can update students only
+        if user.role == "teacher":
+            if instance.role != "student":
+                raise PermissionDenied("Teachers can only update student users")
+            super().perform_update(serializer)
+            return
+
+        # Student can update only themselves
+        if user.role == "student":
+            if instance.id != user.id:
+                raise PermissionDenied("You can only update your own profile")
+            super().perform_update(serializer)
+            return
+
+    def perform_destroy(self, instance):
+        """Validate role hierarchy when deleting user."""
+        user = self.request.user
+
         # Prevent users from deleting themselves
         if instance.id == user.id:
-            from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("You cannot delete your own account")
-        
-        # Soft delete instead of hard delete
-        instance.soft_delete()
 
-    @action(detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated])
+        # Superadmin can delete anyone
+        if user.role == "superadmin":
+            super().perform_destroy(instance)
+            return
+
+        # Admin cannot delete superadmin or other admins
+        if user.role == "admin":
+            if instance.role in ["superadmin", "admin"]:
+                raise PermissionDenied(f"Admins cannot delete {instance.role} users")
+            super().perform_destroy(instance)
+            return
+
+        # Teacher can delete students only
+        if user.role == "teacher":
+            if instance.role != "student":
+                raise PermissionDenied("Teachers can only delete student users")
+            super().perform_destroy(instance)
+            return
+
+        # Student cannot delete users
+        raise PermissionDenied("Students cannot delete users")
+
+    @action(
+        detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated]
+    )
     def change_password(self, request):
         """Change user password."""
         try:
@@ -152,29 +176,22 @@ class UserViewSet(AbstractViewSet):
         except Exception as e:
             return self.exception_response(e)
 
-    @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=False,
+        methods=["get"],
+        permission_classes=[permissions.IsAuthenticated, IsAdmin],
+    )
     def by_role(self, request):
-        """
-        Get users filtered by role.
-        Only superadmin and admin can use this endpoint.
-        """
+        """Get users filtered by role. Only superadmin and admin can use this."""
         try:
-            # Check permission
-            if request.user.role not in ['superadmin', 'admin']:
-                return self.error_response(
-                    message="You don't have permission to filter users by role",
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-            
             role = request.query_params.get("role")
             if not role:
                 return self.error_response(message="Role parameter is required")
 
-            # Admin cannot query superadmin users
-            if request.user.role == 'admin' and role == 'superadmin':
+            if request.user.role == "admin" and role == "superadmin":
                 return self.error_response(
                     message="You don't have permission to view superadmin users",
-                    status_code=status.HTTP_403_FORBIDDEN
+                    status_code=status.HTTP_403_FORBIDDEN,
                 )
 
             queryset = self.get_queryset().filter(role=role)
@@ -186,57 +203,60 @@ class UserViewSet(AbstractViewSet):
             )
         except Exception as e:
             return self.exception_response(e)
-    
-    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated, IsAdmin])
+
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[permissions.IsAuthenticated, IsAdmin],
+    )
     def activate(self, request, pk=None):
-        """
-        Activate a user account.
-        Only superadmin and admin can activate users.
-        """
+        """Activate a user account. Only superadmin and admin can activate users."""
         try:
             user = self.get_object()
-            
-            # Admin cannot activate superadmin
-            if request.user.role == 'admin' and user.role == 'superadmin':
+
+            if request.user.role == "admin" and user.role == "superadmin":
                 return self.error_response(
                     message="You don't have permission to activate superadmin users",
-                    status_code=status.HTTP_403_FORBIDDEN
+                    status_code=status.HTTP_403_FORBIDDEN,
                 )
-            
+
             user.is_active = True
             user.save()
-            
-            return self.success_response(message=f"User {user.username} activated successfully")
+
+            return self.success_response(
+                message=f"User {user.username} activated successfully"
+            )
         except Exception as e:
             return self.exception_response(e)
-    
-    @action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated, IsAdmin])
+
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[permissions.IsAuthenticated, IsAdmin],
+    )
     def deactivate(self, request, pk=None):
-        """
-        Deactivate a user account.
-        Only superadmin and admin can deactivate users.
-        """
+        """Deactivate a user account. Only superadmin and admin can deactivate users."""
         try:
             user = self.get_object()
-            
-            # Admin cannot deactivate superadmin
-            if request.user.role == 'admin' and user.role == 'superadmin':
+
+            if request.user.role == "admin" and user.role == "superadmin":
                 return self.error_response(
                     message="You don't have permission to deactivate superadmin users",
-                    status_code=status.HTTP_403_FORBIDDEN
+                    status_code=status.HTTP_403_FORBIDDEN,
                 )
-            
-            # Prevent users from deactivating themselves
+
             if user.id == request.user.id:
                 return self.error_response(
                     message="You cannot deactivate your own account",
-                    status_code=status.HTTP_400_BAD_REQUEST
+                    status_code=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             user.is_active = False
             user.save()
-            
-            return self.success_response(message=f"User {user.username} deactivated successfully")
+
+            return self.success_response(
+                message=f"User {user.username} deactivated successfully"
+            )
         except Exception as e:
             return self.exception_response(e)
 
@@ -244,7 +264,7 @@ class UserViewSet(AbstractViewSet):
 class UserProfileViewSet(AbstractViewSet):
     """
     ViewSet for UserProfile model.
-    
+
     Permissions:
     - Superadmin & Admin: Full access to all profiles
     - Teacher: Can view all student/teacher profiles, can update own profile
@@ -253,46 +273,43 @@ class UserProfileViewSet(AbstractViewSet):
 
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
-    permission_classes = [permissions.IsAuthenticated, ProfilePermission]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         """Filter profiles based on user permissions."""
         queryset = super().get_queryset()
 
-        # Check if request exists (for schema generation)
         if not hasattr(self, "request") or not self.request:
             return queryset
 
         user = self.request.user
-
-        # Check if user is authenticated
         if not user or not user.is_authenticated:
             return queryset.none()
 
         if user.role in ["superadmin", "admin"]:
             return queryset
         elif user.role == "teacher":
-            # Teachers can see student profiles and their own
             return queryset.filter(user__role__in=["student", "teacher"])
         elif user.role == "student":
-            # Students can only see their own profile
             return queryset.filter(user=user)
 
         return queryset.none()
 
-    def perform_create(self, serializer):
-        """Set created_by when creating profile."""
-        serializer.save(created_by=self.request.user)
-
     def perform_update(self, serializer):
-        """Set updated_by when updating profile."""
-        serializer.save(updated_by=self.request.user)
+        """Validate user can only update their own profile unless admin."""
+        user = self.request.user
+        instance = self.get_object()
+
+        if user.role in ["student", "teacher"] and instance.user != user:
+            raise PermissionDenied("You can only update your own profile")
+
+        super().perform_update(serializer)
 
 
 class StudentProfileViewSet(AbstractViewSet):
     """
     ViewSet for StudentProfile model.
-    
+
     Permissions:
     - Superadmin, Admin, Teacher: Full access to all student profiles
     - Student: Can view and update only their own profile
@@ -300,57 +317,53 @@ class StudentProfileViewSet(AbstractViewSet):
 
     queryset = StudentProfile.objects.all()
     serializer_class = StudentProfileSerializer
-    permission_classes = [permissions.IsAuthenticated, ProfilePermission]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         """Filter student profiles based on user permissions."""
         queryset = super().get_queryset()
 
-        # Check if request exists (for schema generation)
         if not hasattr(self, "request") or not self.request:
             return queryset
 
         user = self.request.user
-
-        # Check if user is authenticated
         if not user or not user.is_authenticated:
             return queryset.none()
 
         if user.role in ["superadmin", "admin", "teacher"]:
             return queryset
         elif user.role == "student":
-            # Students can only see their own profile
             return queryset.filter(user=user)
 
         return queryset.none()
 
     def perform_create(self, serializer):
-        """Set created_by when creating student profile."""
-        # Only superadmin and admin can create student profiles
-        if self.request.user.role not in ['superadmin', 'admin']:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Only superadmin and admin can create student profiles")
-        
-        serializer.save(created_by=self.request.user)
+        """Superadmin, Admin, and Teacher can create student profiles."""
+        if self.request.user.role not in ["superadmin", "admin", "teacher"]:
+            raise PermissionDenied(
+                "Only superadmin, admin, and teacher can create student profiles"
+            )
+
+        super().perform_create(serializer)
 
     def perform_update(self, serializer):
-        """Set updated_by when updating student profile."""
-        serializer.save(updated_by=self.request.user)
+        """Validate user can update student profile."""
+        user = self.request.user
+        instance = self.get_object()
 
-    @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+        if user.role == "student" and instance.user != user:
+            raise PermissionDenied("You can only update your own profile")
+
+        super().perform_update(serializer)
+
+    @action(
+        detail=False,
+        methods=["get"],
+        permission_classes=[permissions.IsAuthenticated, IsTeacher],
+    )
     def by_grade(self, request):
-        """
-        Get students by grade level.
-        Teachers and above can access this.
-        """
+        """Get students by grade level. Teachers and above can access this."""
         try:
-            # Check permission
-            if request.user.role not in ['superadmin', 'admin', 'teacher']:
-                return self.error_response(
-                    message="You don't have permission to filter students by grade",
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-            
             grade = request.query_params.get("grade")
             if not grade:
                 return self.error_response(message="Grade parameter is required")
@@ -369,7 +382,7 @@ class StudentProfileViewSet(AbstractViewSet):
 class TeacherProfileViewSet(AbstractViewSet):
     """
     ViewSet for TeacherProfile model.
-    
+
     Permissions:
     - Superadmin & Admin: Full access to all teacher profiles
     - Teacher: Can view all teacher profiles, can update only their own
@@ -377,85 +390,53 @@ class TeacherProfileViewSet(AbstractViewSet):
 
     queryset = TeacherProfile.objects.all()
     serializer_class = TeacherProfileSerializer
-    permission_classes = [permissions.IsAuthenticated, ProfilePermission]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         """Filter teacher profiles based on user permissions."""
         queryset = super().get_queryset()
 
-        # Check if request exists (for schema generation)
         if not hasattr(self, "request") or not self.request:
             return queryset
 
         user = self.request.user
-
-        # Check if user is authenticated
         if not user or not user.is_authenticated:
             return queryset.none()
 
         if user.role in ["superadmin", "admin"]:
             return queryset
         elif user.role == "teacher":
-            # Teachers can see their own profile and other teachers
             return queryset.filter(user__role="teacher")
 
         return queryset.none()
 
     def perform_create(self, serializer):
-        """Set created_by when creating teacher profile."""
-        # Only superadmin and admin can create teacher profiles
-        if self.request.user.role not in ['superadmin', 'admin']:
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied("Only superadmin and admin can create teacher profiles")
-        
-        serializer.save(created_by=self.request.user)
+        """Only superadmin and admin can create teacher profiles."""
+        if self.request.user.role not in ["superadmin", "admin"]:
+            raise PermissionDenied(
+                "Only superadmin and admin can create teacher profiles"
+            )
+
+        super().perform_create(serializer)
 
     def perform_update(self, serializer):
-        """Set updated_by when updating teacher profile."""
-        serializer.save(updated_by=self.request.user)
+        """Validate user can update teacher profile."""
+        user = self.request.user
+        instance = self.get_object()
 
-    @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
-    def by_department(self, request):
-        """
-        Get teachers by department.
-        Superadmin and admin can access this.
-        """
-        try:
-            # Check permission
-            if request.user.role not in ['superadmin', 'admin']:
-                return self.error_response(
-                    message="You don't have permission to filter teachers by department",
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-            
-            department = request.query_params.get("department")
-            if not department:
-                return self.error_response(message="Department parameter is required")
+        if user.role == "teacher" and instance.user != user:
+            raise PermissionDenied("You can only update your own profile")
 
-            queryset = self.get_queryset().filter(department=department)
-            serializer = self.get_serializer(queryset, many=True)
+        super().perform_update(serializer)
 
-            return self.success_response(
-                message=f"Teachers in '{department}' department retrieved successfully",
-                data=serializer.data,
-            )
-        except Exception as e:
-            return self.exception_response(e)
-
-    @action(detail=False, methods=["get"], permission_classes=[permissions.IsAuthenticated])
+    @action(
+        detail=False,
+        methods=["get"],
+        permission_classes=[permissions.IsAuthenticated, IsTeacher],
+    )
     def by_subject(self, request):
-        """
-        Get teachers by subject specialization.
-        Teachers and above can access this.
-        """
+        """Get teachers by subject specialization. Teachers and above can access this."""
         try:
-            # Check permission
-            if request.user.role not in ['superadmin', 'admin', 'teacher']:
-                return self.error_response(
-                    message="You don't have permission to filter teachers by subject",
-                    status_code=status.HTTP_403_FORBIDDEN
-                )
-            
             subject = request.query_params.get("subject")
             if not subject:
                 return self.error_response(message="Subject parameter is required")
@@ -474,16 +455,12 @@ class TeacherProfileViewSet(AbstractViewSet):
 
 
 class LogoutView(APIView):
-    """
-    Logout view that blacklists the refresh token.
-    """
+    """Logout view that blacklists the refresh token."""
 
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        """
-        Logout user by blacklisting the refresh token.
-        """
+        """Logout user by blacklisting the refresh token."""
         try:
             refresh_token = request.data.get("refresh_token")
 
@@ -497,7 +474,6 @@ class LogoutView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Create RefreshToken instance and blacklist it
             token = RefreshToken(refresh_token)
             token.blacklist()
 
@@ -525,19 +501,14 @@ class LogoutView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    
+
 class SelfView(APIView):
-    """
-    View to retrieve the authenticated user's own information.
-    Any authenticated user can access their own information.
-    """
+    """View to retrieve the authenticated user's own information."""
 
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        """
-        Retrieve the authenticated user's information.
-        """
+        """Retrieve the authenticated user's information."""
         try:
             user = request.user
             serializer = Self(context={"request": request})

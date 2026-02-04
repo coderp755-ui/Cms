@@ -186,7 +186,6 @@ class Self(serializers.Serializer):
         if request and hasattr(request, "user"):
             user = request.user
             return {
-                "id": user.id,
                 "username": user.username,
                 "email": user.email,
                 "first_name": user.first_name,
