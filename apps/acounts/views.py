@@ -37,13 +37,14 @@ class UserViewSet(AbstractViewSet):
     - Student: Can view and update only their own profile
     """
 
-    queryset = User.objects.all()
+    queryset = User.objects.all()   
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         """Filter queryset based on user role and permissions."""
-        queryset = super().get_queryset()
+        # Exclude superadmin and deleted users by default
+        queryset = super().get_queryset().exclude(role="superadmin").filter(is_deleted=False)
 
         if not hasattr(self, "request") or not self.request:
             return queryset
@@ -52,12 +53,16 @@ class UserViewSet(AbstractViewSet):
         if not user or not user.is_authenticated:
             return queryset.none()
 
+        # Superadmin can see all users (including other superadmins and deleted)
         if user.role == "superadmin":
-            return queryset
+            return User.objects.all()
+        # Admin can see all except superadmin (and no deleted users)
         elif user.role == "admin":
-            return queryset.exclude(role="superadmin")
+            return queryset
+        # Teachers can see students and teachers only (no deleted)
         elif user.role == "teacher":
             return queryset.filter(role__in=["student", "teacher"])
+        # Students can only see themselves
         elif user.role == "student":
             return queryset.filter(id=user.id)
 
