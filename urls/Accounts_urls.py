@@ -12,9 +12,9 @@ from apps.acounts.views import (
 # Create router and register viewsets
 router = DefaultRouter()
 router.register(r"users", UserViewSet, basename="users")
-router.register(r"profiles", UserProfileViewSet, basename="profiles")
-router.register(r"students", StudentProfileViewSet, basename="students")
-router.register(r"teachers", TeacherProfileViewSet, basename="teachers")
+router.register(r"usersprofiles", UserProfileViewSet, basename="profiles")
+router.register(r"studentsprofile", StudentProfileViewSet, basename="students")
+router.register(r"teachersprofile", TeacherProfileViewSet, basename="teachers")
 
 urlpatterns = [
     path("", include(router.urls)),
