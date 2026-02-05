@@ -23,6 +23,12 @@ class User(
     employee_id = models.CharField(max_length=20, unique=True, blank=True, null=True)
     student_id = models.CharField(max_length=20, unique=True, blank=True, null=True)
 
+    class Meta:
+        db_table = "users"
+        unique_together = ("employee_id", "student_id")
+        ordering = ["-created_at"]
+        verbose_name = "User"
+
     def save(self, *args, **kwargs):
         # Auto-generate IDs based on role
         if not self.pk:  # Only for new users

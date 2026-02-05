@@ -18,6 +18,11 @@ class Course(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin)
 
     is_active = models.BooleanField(default=True)
 
+    class Meta:
+        db_table = "course"
+        unique_together = ("title", "course_type")
+        ordering = ("-created_at",)
+
     def __str__(self):
         return self.title
 
@@ -36,6 +41,10 @@ class Section(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin
     name = models.CharField(max_length=20, choices=SECTION_CHOICES)
     is_active = models.BooleanField(default=True)
 
+    class Meta:
+        db_table = "sections"
+        unique_together = ("course", "name")
+
     def __str__(self):
         return f"{self.course.title} - {self.name}"
 
@@ -51,6 +60,11 @@ class Lesson(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin)
     content = models.TextField()
 
     order = models.PositiveIntegerField(default=1)
+
+    class Meta:
+        db_table = "lessons"
+        unique_together = ("section", "order")
+        ordering = ("order",)
 
     def __str__(self):
         return self.title
