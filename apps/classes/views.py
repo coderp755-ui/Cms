@@ -1,5 +1,6 @@
 from rest_framework import permissions
 from apps.common.views import AbstractViewSet
+from apps.common.paginations.default_paginations import CustomDefaultPagination
 from apps.classes.Serializers.CourseSerializers import CourseSerializer
 from apps.classes.Serializers.SectionSerializer import SectionSerializer
 from apps.classes.Serializers.LessonSerializers import LessonSerializer
@@ -22,6 +23,7 @@ class CourseViewSet(AbstractViewSet):
 
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
+    pagination_class = CustomDefaultPagination
 
     def get_permissions(self):
         """Apply different permissions based on action."""
@@ -46,6 +48,7 @@ class SectionViewSet(AbstractViewSet):
 
     queryset = Section.objects.all()
     serializer_class = SectionSerializer
+    pagination_class = CustomDefaultPagination
 
     def get_permissions(self):
         """Apply different permissions based on action."""
@@ -70,6 +73,7 @@ class LessonViewSet(AbstractViewSet):
 
     queryset = Lesson.objects.all()
     serializer_class = LessonSerializer
+    pagination_class = CustomDefaultPagination
 
     def get_permissions(self):
         """Apply different permissions based on action."""

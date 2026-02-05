@@ -7,7 +7,6 @@ import os
 class LessonSerializer(DynamicFieldsModelSerializer):
     file_type = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
-    google_drive_preview_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Lesson
@@ -29,7 +28,6 @@ class LessonSerializer(DynamicFieldsModelSerializer):
             "updated_by",
             "file_url",
             "file_type",
-            "google_drive_preview_url",
         ]
 
     def get_file_type(self, obj):
