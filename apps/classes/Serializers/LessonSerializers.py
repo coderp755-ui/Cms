@@ -7,6 +7,7 @@ import os
 class LessonSerializer(DynamicFieldsModelSerializer):
     file_type = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
+    google_drive_preview_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Lesson
@@ -28,6 +29,7 @@ class LessonSerializer(DynamicFieldsModelSerializer):
             "updated_by",
             "file_url",
             "file_type",
+            "google_drive_preview_url",
         ]
 
     def get_file_type(self, obj):
@@ -62,28 +64,8 @@ class LessonSerializer(DynamicFieldsModelSerializer):
         return value
 
     def validate_file(self, value):
-        """Validate that only video files are uploaded."""
+        """Validate file size only (all file types allowed)."""
         if value:
-            # Allowed video extensions
-            allowed_extensions = [
-                ".mp4",
-                ".avi",
-                ".mov",
-                ".wmv",
-                ".flv",
-                ".mkv",
-                ".webm",
-                ".m4v",
-            ]
-
-            file_name = value.name
-            extension = os.path.splitext(file_name)[1].lower()
-
-            if extension not in allowed_extensions:
-                raise serializers.ValidationError(
-                    f"Only video files are allowed. Supported formats: {', '.join(allowed_extensions)}"
-                )
-
             # Optional: Check file size (e.g., max 500MB)
             max_size = 500 * 1024 * 1024  # 500MB in bytes
             if value.size > max_size:
