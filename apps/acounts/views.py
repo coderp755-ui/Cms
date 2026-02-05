@@ -11,6 +11,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from apps.common.views import AbstractViewSet
+from apps.common.paginations.default_paginations import CustomDefaultPagination
 from apps.acounts.models import User, UserProfile, StudentProfile, TeacherProfile
 from apps.acounts.Serializers.account_serializers import (
     Self,
@@ -22,6 +23,11 @@ from apps.acounts.Serializers.account_serializers import (
 from apps.acounts.permissions import (
     IsAdmin,
     IsTeacher,
+)
+from apps.acounts.filters import (
+    UserFilterSet,
+    StudentProfileFilterSet,
+    TeacherProfileFilterSet,
 )
 
 
@@ -39,6 +45,11 @@ class UserViewSet(AbstractViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomDefaultPagination
+    filterset_class = UserFilterSet
+    search_fields = ['first_name', 'last_name', 'username', 'email', 'employee_id', 'student_id']
+    ordering_fields = ['id', 'username', 'first_name', 'last_name', 'date_joined', 'role']
+    ordering = ['-date_joined']
 
     def get_queryset(self):
         """Filter queryset based on user role and permissions."""
@@ -280,6 +291,7 @@ class UserProfileViewSet(AbstractViewSet):
     queryset = UserProfile.objects.all()
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomDefaultPagination
 
     def get_queryset(self):
         """Filter profiles based on user permissions."""
@@ -324,6 +336,11 @@ class StudentProfileViewSet(AbstractViewSet):
     queryset = StudentProfile.objects.all()
     serializer_class = StudentProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomDefaultPagination
+    filterset_class = StudentProfileFilterSet
+    search_fields = ['user__first_name', 'user__last_name', 'grade_level', 'roll_number']
+    ordering_fields = ['id', 'grade_level', 'admission_date']
+    ordering = ['-created_at']
 
     def get_queryset(self):
         """Filter student profiles based on user permissions."""
@@ -397,6 +414,11 @@ class TeacherProfileViewSet(AbstractViewSet):
     queryset = TeacherProfile.objects.all()
     serializer_class = TeacherProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomDefaultPagination
+    filterset_class = TeacherProfileFilterSet
+    search_fields = ['user__first_name', 'user__last_name', 'department', 'subject_specialization', 'employee_code']
+    ordering_fields = ['id', 'department', 'hire_date', 'experience_years']
+    ordering = ['-created_at']
 
     def get_queryset(self):
         """Filter teacher profiles based on user permissions."""
