@@ -14,7 +14,7 @@ class TestSectionSerilizers(DynamicFieldsModelSerializer):
         read_only_fileds=["created_at", "updated_at","created_by","updated_by"]
         
         def validate_titlesection(self,value):
-            qs=Title.objects.filter(title__iexcat=value, is_deleted = False)
+            qs=TestSection.objects.filter(title__iexcat=value, is_deleted = False)
 
             if self.instance:
                 qs=qs.exclude(id=self.instance.id)

@@ -1,14 +1,7 @@
-from django.core.exceptions import ObjectDoesNotExist
-from django.http import Http404
-# from django.utils.decorators import method_decorator
-# from django.views.decorators.csrf import csrf_protect
-
 from rest_framework import status, viewsets
-from rest_framework.exceptions import NotFound, PermissionDenied, ValidationError
+from rest_framework.exceptions import MethodNotAllowed
 
 from apps.common.response.mixins import ResponseHandlerMixin
-
-from rest_framework.exceptions import MethodNotAllowed
 
 
 class AbstractViewSet(
@@ -32,25 +25,26 @@ class AbstractViewSet(
 
     """
 
-    exclude_methods = []  # class-level
-    exclude_actions = []  # optional, explained below
+    exclude_methods = []
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Only set model_name if queryset is available
         try:
             self.model_name = getattr(
                 self, "model_name", self.get_queryset().model.__name__
             )
-        except Exception as e:
-            self.model_name = getattr(self, "model_name", f"Model :{str(e)}")
+        except Exception:
+            self.model_name = "Model"
         self.viewset_name = self.__class__.__name__
-        self.permission_utils = None
 
-    def initial(self, request, *args, **kwargs):
-        super().initial(request, *args, **kwargs)
-        # Skip permission utils for now since it's not defined
-        pass
+    def get_queryset(self):
+        """Override to filter out soft-deleted items by default."""
+        queryset = super().get_queryset()
+        
+        if hasattr(queryset.model, 'is_deleted'):
+            queryset = queryset.filter(is_deleted=False)
+        
+        return queryset
 
     def dispatch(self, request, *args, **kwargs):
         if request.method.upper() in self.exclude_methods:
@@ -76,32 +70,13 @@ class AbstractViewSet(
         try:
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-
-            # Save the instance
-            instance = serializer.save()
-
-            # Set audit fields if they exist
-            if (
-                hasattr(instance, "created_by")
-                and hasattr(request, "user")
-                and request.user.is_authenticated
-            ):
-                instance.created_by = request.user
-                instance.save()
+            self.perform_create(serializer)
 
             return self.success_response(
                 message=f"{self.model_name} created successfully",
                 data=serializer.data,
                 status_code=status.HTTP_201_CREATED,
             )
-        except (
-            ValidationError,
-            NotFound,
-            ObjectDoesNotExist,
-            PermissionDenied,
-            Http404,
-        ) as e:
-            return self.exception_response(e)
         except Exception as e:
             return self.exception_response(e)
 
@@ -113,14 +88,6 @@ class AbstractViewSet(
                 message=f"{self.model_name} retrieved successfully",
                 data=serializer.data,
             )
-        except (
-            ValidationError,
-            PermissionDenied,
-            ObjectDoesNotExist,
-            Http404,
-            NotFound,
-        ) as e:
-            return self.exception_response(e)
         except Exception as e:
             return self.exception_response(e)
 
@@ -132,60 +99,22 @@ class AbstractViewSet(
                 instance, data=request.data, partial=partial
             )
             serializer.is_valid(raise_exception=True)
-
-            # Save the instance
-            updated_instance = serializer.save()
-
-            # Set audit fields if they exist
-            if (
-                hasattr(updated_instance, "updated_by")
-                and hasattr(request, "user")
-                and request.user.is_authenticated
-            ):
-                updated_instance.updated_by = request.user
-                updated_instance.save()
+            self.perform_update(serializer)
 
             return self.success_response(
-                message=f"{self.model_name} updated successfully", data=serializer.data
+                message=f"{self.model_name} updated successfully", 
+                data=serializer.data
             )
-        except (
-            ObjectDoesNotExist,
-            Http404,
-            NotFound,
-            ValidationError,
-            PermissionDenied,
-        ) as e:
-            return self.exception_response(e)
         except Exception as e:
             return self.exception_response(e)
 
     def destroy(self, request, *args, **kwargs):
         try:
             instance = self.get_object()
-
-            # Check if soft delete is available
-            if hasattr(instance, "soft_delete"):
-                instance.soft_delete()
-            elif hasattr(instance, "is_deleted"):
-                instance.is_deleted = True
-                instance.save()
-            elif hasattr(instance, "is_active"):
-                instance.is_active = False
-                instance.save()
-            else:
-                # Hard delete as fallback
-                instance.delete()
+            self.perform_destroy(instance)
 
             return self.success_response(
                 message=f"{self.model_name} deleted successfully"
             )
-        except (
-            ObjectDoesNotExist,
-            Http404,
-            NotFound,
-            ValidationError,
-            PermissionDenied,
-        ) as e:
-            return self.exception_response(e)
         except Exception as e:
             return self.exception_response(e)

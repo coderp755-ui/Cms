@@ -6,11 +6,11 @@ AbstractViewSet handles: list, create, retrieve, update, destroy, created_by, up
 from rest_framework import permissions, status
 from rest_framework.decorators import action
 from rest_framework.views import APIView
-from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.exceptions import TokenError
 from apps.common.views import AbstractViewSet
+from apps.common.response.mixins import ResponseHandlerMixin
 from apps.common.paginations.default_paginations import CustomDefaultPagination
 from apps.acounts.models import User, UserProfile, StudentProfile, TeacherProfile
 from apps.acounts.Serializers.account_serializers import (
@@ -53,10 +53,8 @@ class UserViewSet(AbstractViewSet):
 
     def get_queryset(self):
         """Filter queryset based on user role and permissions."""
-        # Exclude superadmin and deleted users by default
-        queryset = (
-            super().get_queryset().exclude(role="superadmin").filter(is_deleted=False)
-        )
+        # Exclude superadmin by default (is_deleted filter handled by AbstractViewSet)
+        queryset = super().get_queryset().exclude(role="superadmin")
 
         if not hasattr(self, "request") or not self.request:
             return queryset
@@ -65,13 +63,13 @@ class UserViewSet(AbstractViewSet):
         if not user or not user.is_authenticated:
             return queryset.none()
 
-        # Superadmin can see all users (including other superadmins and deleted)
+        # Superadmin can see all users (including other superadmins)
         if user.role == "superadmin":
             return User.objects.all()
-        # Admin can see all except superadmin (and no deleted users)
+        # Admin can see all except superadmin
         elif user.role == "admin":
             return queryset
-        # Teachers can see students and teachers only (no deleted)
+        # Teachers can see students and teachers only
         elif user.role == "teacher":
             return queryset.filter(role__in=["student", "teacher"])
         # Students can only see themselves
@@ -80,93 +78,6 @@ class UserViewSet(AbstractViewSet):
 
         return queryset.none()
 
-    def perform_create(self, serializer):
-        """Validate role hierarchy when creating user."""
-        user = self.request.user
-        target_role = self.request.data.get("role")
-
-        # Superadmin can create anyone
-        if user.role == "superadmin":
-            super().perform_create(serializer)
-            return
-
-        # Admin can create teacher and student only
-        if user.role == "admin":
-            if target_role == "superadmin":
-                raise PermissionDenied("Admins cannot create superadmin users")
-            super().perform_create(serializer)
-            return
-
-        # Teacher can create student only
-        if user.role == "teacher":
-            if target_role != "student":
-                raise PermissionDenied("Teachers can only create student users")
-            super().perform_create(serializer)
-            return
-
-        # Student cannot create users
-        raise PermissionDenied("Students cannot create users")
-
-    def perform_update(self, serializer):
-        """Validate role hierarchy when updating user."""
-        user = self.request.user
-        instance = self.get_object()
-
-        # Superadmin can update anyone
-        if user.role == "superadmin":
-            super().perform_update(serializer)
-            return
-
-        # Admin cannot update superadmin
-        if user.role == "admin":
-            if instance.role == "superadmin":
-                raise PermissionDenied("Admins cannot update superadmin users")
-            super().perform_update(serializer)
-            return
-
-        # Teacher can update students only
-        if user.role == "teacher":
-            if instance.role != "student":
-                raise PermissionDenied("Teachers can only update student users")
-            super().perform_update(serializer)
-            return
-
-        # Student can update only themselves
-        if user.role == "student":
-            if instance.id != user.id:
-                raise PermissionDenied("You can only update your own profile")
-            super().perform_update(serializer)
-            return
-
-    def perform_destroy(self, instance):
-        """Validate role hierarchy when deleting user."""
-        user = self.request.user
-
-        # Prevent users from deleting themselves
-        if instance.id == user.id:
-            raise PermissionDenied("You cannot delete your own account")
-
-        # Superadmin can delete anyone
-        if user.role == "superadmin":
-            super().perform_destroy(instance)
-            return
-
-        # Admin cannot delete superadmin or other admins
-        if user.role == "admin":
-            if instance.role in ["superadmin", "admin"]:
-                raise PermissionDenied(f"Admins cannot delete {instance.role} users")
-            super().perform_destroy(instance)
-            return
-
-        # Teacher can delete students only
-        if user.role == "teacher":
-            if instance.role != "student":
-                raise PermissionDenied("Teachers can only delete student users")
-            super().perform_destroy(instance)
-            return
-
-        # Student cannot delete users
-        raise PermissionDenied("Students cannot delete users")
 
     @action(
         detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated]
@@ -482,7 +393,7 @@ class TeacherProfileViewSet(AbstractViewSet):
             return self.exception_response(e)
 
 
-class LogoutView(APIView):
+class LogoutView(APIView, ResponseHandlerMixin):
     """Logout view that blacklists the refresh token."""
 
     permission_classes = [permissions.IsAuthenticated]
@@ -493,44 +404,26 @@ class LogoutView(APIView):
             refresh_token = request.data.get("refresh_token")
 
             if not refresh_token:
-                return Response(
-                    {
-                        "success": False,
-                        "message": "Refresh token is required",
-                        "data": None,
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
+                return self.error_response(
+                    message="Refresh token is required",
+                    status_code=status.HTTP_400_BAD_REQUEST,
                 )
 
             token = RefreshToken(refresh_token)
             token.blacklist()
 
-            return Response(
-                {"success": True, "message": "Successfully logged out", "data": None},
-                status=status.HTTP_200_OK,
-            )
+            return self.success_response(message="Successfully logged out")
 
-        except TokenError as e:
-            return Response(
-                {
-                    "success": False,
-                    "message": "Invalid or expired token",
-                    "data": str(e),
-                },
-                status=status.HTTP_400_BAD_REQUEST,
+        except TokenError:
+            return self.error_response(
+                message="Invalid or expired token",
+                status_code=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
-            return Response(
-                {
-                    "success": False,
-                    "message": f"An error occurred: {str(e)}",
-                    "data": None,
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return self.exception_response(e)
 
 
-class SelfView(APIView):
+class SelfView(APIView, ResponseHandlerMixin):
     """View to retrieve the authenticated user's own information."""
 
     permission_classes = [permissions.IsAuthenticated]
@@ -542,20 +435,9 @@ class SelfView(APIView):
             serializer = Self(context={"request": request})
             data = serializer.to_representation(user)
 
-            return Response(
-                {
-                    "success": True,
-                    "message": "User information retrieved successfully",
-                    "data": data,
-                },
-                status=status.HTTP_200_OK,
+            return self.success_response(
+                message="User information retrieved successfully",
+                data=data,
             )
         except Exception as e:
-            return Response(
-                {
-                    "success": False,
-                    "message": f"An error occurred: {str(e)}",
-                    "data": None,
-                },
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+            return self.exception_response(e)

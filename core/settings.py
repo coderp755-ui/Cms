@@ -68,6 +68,11 @@ ROOT_URLCONF = "urls.urls"
 
 AUTH_USER_MODEL = "acounts.User"
 
+AUTHENTICATION_BACKENDS = [
+    "apps.acounts.backends.CustomAuthBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://10.2.2.78:5173",

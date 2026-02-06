@@ -14,7 +14,7 @@ class QuestionOptionSerilizers(DynamicFieldsModelSerializer):
         read_only_fileds=["created_at", "updated_at","created_by","updated_by"]
 
         def validate_title(self,value):
-            qs=Title.objects.filter(title__iexact=value, is_deleted=False)
+            qs=QuestionOption.objects.filter(title__iexact=value, is_deleted=False)
             
             if self.instance:
                 qs=qs.exclude(id=self.instance.id)
