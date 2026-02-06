@@ -1,24 +1,38 @@
 from rest_framework import serializers
-from apps.tests.model import TestSection
+from apps.tests.models import TestSection
 from apps.common.serializers import DynamicFieldsModelSerializer
 
-class TestSectionSerilizers(DynamicFieldsModelSerializer):
+
+class TestSectionSerializer(DynamicFieldsModelSerializer):
+    test_title = serializers.CharField(source="test.title", read_only=True)
+    section_name = serializers.CharField(source="section.name", read_only=True)
+
     class Meta:
-        model= TestSection
-        feilds =[
-            "test"
-            "section"
-            "duration_minutes"
-            "total_marks"
+        model = TestSection
+        fields = [
+            "id",
+            "test",
+            "test_title",
+            "section",
+            "section_name",
+            "duration_minutes",
+            "total_marks",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fileds=["created_at", "updated_at","created_by","updated_by"]
-        
-        def validate_titlesection(self,value):
-            qs=TestSection.objects.filter(title__iexcat=value, is_deleted = False)
+        read_only_fields = ["created_at", "updated_at", "created_by", "updated_by"]
 
-            if self.instance:
-                qs=qs.exclude(id=self.instance.id)
+    def validate_unique_together(self, data):
+        test = data.get("test", self.instance.test if self.instance else None)
+        section = data.get("section", self.instance.section if self.instance else None)
 
-            if qs.exits():
-                raise serializers.ValidationError("This title already exists.")
-            return value        
+        qs = TestSection.objects.filter(test=test, section=section)
+
+        if self.instance:
+            qs = qs.exclude(id=self.instance.id)
+
+        if qs.exists():
+            raise serializers.ValidationError(
+                "This test-section combination already exists."
+            )
+        return data

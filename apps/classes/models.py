@@ -57,7 +57,12 @@ class Lesson(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin)
     title = models.CharField(max_length=200)
 
     file = models.FileField(upload_to="lessons/files/", blank=True, null=True)
-    video_url = models.URLField(max_length=500, blank=True, null=True, help_text="YouTube, Vimeo, or other video URL")
+    video_url = models.URLField(
+        max_length=500,
+        blank=True,
+        null=True,
+        help_text="YouTube, Vimeo, or other video URL",
+    )
     is_active = models.BooleanField(default=True)
     content = models.TextField()
 

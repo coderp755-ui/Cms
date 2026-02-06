@@ -43,7 +43,6 @@ class ResponseHandlerMixin:
     ):
         """Return a standardized success response."""
         response_data = {"success": True, "message": message, **kwargs}
-        module = self.__class__.__module__
         if data is not None:
             response_data["data"] = data
         return Response(response_data, status=status_code)
@@ -57,7 +56,6 @@ class ResponseHandlerMixin:
     ):
         """Return a standardized error response."""
         response_data = {"success": False, "message": message, **kwargs}
-        module = self.__class__.__module__
         if errors is not None:
             response_data["errors"] = errors
         return Response(response_data, status=status_code)

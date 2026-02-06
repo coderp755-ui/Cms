@@ -4,63 +4,49 @@ from apps.common.serializers import DynamicFieldsModelSerializer
 
 
 class ManualEvaluationSerializer(DynamicFieldsModelSerializer):
+    answer_id = serializers.IntegerField(source="answer.id", read_only=True)
+    question_text = serializers.CharField(
+        source="answer.question.question_text", read_only=True
+    )
+    student_username = serializers.CharField(
+        source="answer.attempt.student.username", read_only=True
+    )
+    checked_by_username = serializers.CharField(
+        source="checked_by.username", read_only=True
+    )
+
     class Meta:
         model = ManualEvaluation
         fields = [
             "id",
             "answer",
+            "answer_id",
+            "question_text",
+            "student_username",
             "checked_by",
+            "checked_by_username",
             "criteria_score",
             "obtained_marks",
             "feedback",
             "is_final",
-        ]
-        extra_kwargs = {
-            "answer": {"required": True},
-            "criteria_score": {"required": True},
-            "obtained_marks": {"required": True},
-        }
-        read_only_fields = (
-            "id",
-            "checked_by",
-            "created_by",
-            "updated_by",
             "created_at",
             "updated_at",
+        ]
+        read_only_fields = ["created_at", "updated_at", "created_by", "updated_by"]
+
+    def validate_unique_together(self, data):
+        answer = data.get("answer", self.instance.answer if self.instance else None)
+        checked_by = data.get("checked_by", self.instance.checked_by if self.instance else None)
+
+        qs = ManualEvaluation.objects.filter(
+            answer=answer, checked_by=checked_by
         )
 
-    def validate(self, attrs):
-        answer = attrs.get("answer")
-        criteria_score = attrs.get("criteria_score")
-        obtained_marks = attrs.get("obtained_marks")
-        is_final = attrs.get("is_final", False)
+        if self.instance:
+            qs = qs.exclude(id=self.instance.id)
 
-        if ManualEvaluation.objects.filter(answer=answer).exists():
-            raise serializers.ValidationError({
-                "answer": "This answer has already been evaluated."
-            })
-
-        if not isinstance(criteria_score, dict):
-            raise serializers.ValidationError({
-                "criteria_score": "Criteria score must be a dictionary."
-            })
-
-        total_criteria_marks = 0
-        for key, value in criteria_score.items():
-            if not isinstance(value, (int, float)):
-                raise serializers.ValidationError({
-                    "criteria_score": f"Invalid score for '{key}'. Must be number."
-                })
-            total_criteria_marks += value
-
-        if obtained_marks > total_criteria_marks:
-            raise serializers.ValidationError({
-                "obtained_marks": "Obtained marks cannot exceed criteria total."
-            })
-
-        if is_final and obtained_marks <= 0:
-            raise serializers.ValidationError({
-                "obtained_marks": "Final evaluation must have obtained marks."
-            })
-
-        return attrs
+        if qs.exists():
+            raise serializers.ValidationError(
+                "This answer has already been evaluated by this teacher."
+            )
+        return data

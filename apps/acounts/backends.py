@@ -1,6 +1,7 @@
 """
 Custom authentication backend to prevent deleted users from logging in.
 """
+
 from django.contrib.auth.backends import ModelBackend
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -29,7 +30,7 @@ class CustomAuthBackend(ModelBackend):
                 return None
 
         # Check if user is soft-deleted
-        if hasattr(user, 'is_deleted') and user.is_deleted:
+        if hasattr(user, "is_deleted") and user.is_deleted:
             return None
 
         # Check if user is active
@@ -49,7 +50,7 @@ class CustomAuthBackend(ModelBackend):
         try:
             user = User.objects.get(pk=user_id)
             # Check if user is soft-deleted
-            if hasattr(user, 'is_deleted') and user.is_deleted:
+            if hasattr(user, "is_deleted") and user.is_deleted:
                 return None
             return user
         except User.DoesNotExist:
@@ -66,25 +67,25 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         Validate credentials and check if user is not deleted.
         """
         # Get username from attrs
-        username = attrs.get('username')
-        
+        username = attrs.get("username")
+
         try:
             # Check if user exists and is not deleted
             user = User.objects.get(username=username)
-            
-            if hasattr(user, 'is_deleted') and user.is_deleted:
+
+            if hasattr(user, "is_deleted") and user.is_deleted:
                 raise AuthenticationFailed(
-                    'This account has been deleted. Please contact administrator.'
+                    "This account has been deleted. Please contact administrator."
                 )
-            
+
             if not user.is_active:
                 raise AuthenticationFailed(
-                    'This account is inactive. Please contact administrator.'
+                    "This account is inactive. Please contact administrator."
                 )
-                
+
         except User.DoesNotExist:
             pass  # Let parent class handle invalid credentials
-        
+
         # Call parent validation
         return super().validate(attrs)
 
@@ -93,4 +94,5 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     """
     Custom token view using our custom serializer.
     """
+
     serializer_class = CustomTokenObtainPairSerializer

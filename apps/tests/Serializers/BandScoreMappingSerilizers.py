@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from .models import BandScoreMapping
-from apps.common.serializers import DynamicFieldsModelSerializer    
+from apps.tests.models import BandScoreMapping
+from apps.common.serializers import DynamicFieldsModelSerializer
 
 
 class BandScoreMappingSerializer(DynamicFieldsModelSerializer):
@@ -13,43 +13,37 @@ class BandScoreMappingSerializer(DynamicFieldsModelSerializer):
             "min_score",
             "max_score",
             "band_score",
-            # "created_at",
-            # "updated_at",
-            # "created_by",
-            # "updated_by",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = ["id", "created_at", "updated_at","created_by","updated_by",]
+        read_only_fields = ["created_at", "updated_at", "created_by", "updated_by"]
 
-    def validate(self, attrs):
-        """
-        Prevent overlapping score ranges for same test_type & section
-        """
-        test_type = attrs.get("test_type")
-        section = attrs.get("section")
-        min_score = attrs.get("min_score")
-        max_score = attrs.get("max_score")
-
-        if min_score >= max_score:
-            raise serializers.ValidationError(
-                {"min_score": "min_score must be less than max_score"}
-            )
+    def validate_unique_together(self, data):
+        test_type = data.get("test_type", self.instance.test_type if self.instance else None)
+        section = data.get("section", self.instance.section if self.instance else None)
+        min_score = data.get("min_score", self.instance.min_score if self.instance else None)
+        max_score = data.get("max_score", self.instance.max_score if self.instance else None)
 
         qs = BandScoreMapping.objects.filter(
             test_type=test_type,
             section=section,
+            min_score=min_score,
+            max_score=max_score,
         )
 
-        # Update case handle
         if self.instance:
             qs = qs.exclude(id=self.instance.id)
 
-        # Overlapping range check
-        if qs.filter(
-            min_score__lt=max_score,
-            max_score__gt=min_score,
-        ).exists():
+        if qs.exists():
             raise serializers.ValidationError(
-                "Score range overlaps with existing band mapping"
+                "This band score mapping already exists."
             )
+        return data
 
-        return attrs
+    def validate(self, data):
+        if data.get("min_score") and data.get("max_score"):
+            if data["min_score"] >= data["max_score"]:
+                raise serializers.ValidationError(
+                    "min_score must be less than max_score"
+                )
+        return data
