@@ -44,6 +44,7 @@ class Section(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin
     class Meta:
         db_table = "sections"
         unique_together = ("course", "name")
+        ordering = ("id",)
 
     def __str__(self):
         return f"{self.course.title} - {self.name}"
@@ -56,6 +57,7 @@ class Lesson(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin)
     title = models.CharField(max_length=200)
 
     file = models.FileField(upload_to="lessons/files/", blank=True, null=True)
+    video_url = models.URLField(max_length=500, blank=True, null=True, help_text="YouTube, Vimeo, or other video URL")
     is_active = models.BooleanField(default=True)
     content = models.TextField()
 
