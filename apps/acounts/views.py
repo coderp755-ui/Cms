@@ -47,9 +47,23 @@ class UserViewSet(AbstractViewSet):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomDefaultPagination
     filterset_class = UserFilterSet
-    search_fields = ['first_name', 'last_name', 'username', 'email', 'employee_id', 'student_id']
-    ordering_fields = ['id', 'username', 'first_name', 'last_name', 'date_joined', 'role']
-    ordering = ['-date_joined']
+    search_fields = [
+        "first_name",
+        "last_name",
+        "username",
+        "email",
+        "employee_id",
+        "student_id",
+    ]
+    ordering_fields = [
+        "id",
+        "username",
+        "first_name",
+        "last_name",
+        "date_joined",
+        "role",
+    ]
+    ordering = ["-date_joined"]
 
     def get_queryset(self):
         """Filter queryset based on user role and permissions."""
@@ -77,7 +91,6 @@ class UserViewSet(AbstractViewSet):
             return queryset.filter(id=user.id)
 
         return queryset.none()
-
 
     @action(
         detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated]
@@ -249,9 +262,14 @@ class StudentProfileViewSet(AbstractViewSet):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomDefaultPagination
     filterset_class = StudentProfileFilterSet
-    search_fields = ['user__first_name', 'user__last_name', 'grade_level', 'roll_number']
-    ordering_fields = ['id', 'grade_level', 'admission_date']
-    ordering = ['-created_at']
+    search_fields = [
+        "user__first_name",
+        "user__last_name",
+        "grade_level",
+        "roll_number",
+    ]
+    ordering_fields = ["id", "grade_level", "admission_date"]
+    ordering = ["-created_at"]
 
     def get_queryset(self):
         """Filter student profiles based on user permissions."""
@@ -327,9 +345,15 @@ class TeacherProfileViewSet(AbstractViewSet):
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = CustomDefaultPagination
     filterset_class = TeacherProfileFilterSet
-    search_fields = ['user__first_name', 'user__last_name', 'department', 'subject_specialization', 'employee_code']
-    ordering_fields = ['id', 'department', 'hire_date', 'experience_years']
-    ordering = ['-created_at']
+    search_fields = [
+        "user__first_name",
+        "user__last_name",
+        "department",
+        "subject_specialization",
+        "employee_code",
+    ]
+    ordering_fields = ["id", "department", "hire_date", "experience_years"]
+    ordering = ["-created_at"]
 
     def get_queryset(self):
         """Filter teacher profiles based on user permissions."""

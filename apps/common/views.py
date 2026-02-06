@@ -40,10 +40,10 @@ class AbstractViewSet(
     def get_queryset(self):
         """Override to filter out soft-deleted items by default."""
         queryset = super().get_queryset()
-        
-        if hasattr(queryset.model, 'is_deleted'):
+
+        if hasattr(queryset.model, "is_deleted"):
             queryset = queryset.filter(is_deleted=False)
-        
+
         return queryset
 
     def dispatch(self, request, *args, **kwargs):
@@ -102,8 +102,7 @@ class AbstractViewSet(
             self.perform_update(serializer)
 
             return self.success_response(
-                message=f"{self.model_name} updated successfully", 
-                data=serializer.data
+                message=f"{self.model_name} updated successfully", data=serializer.data
             )
         except Exception as e:
             return self.exception_response(e)
