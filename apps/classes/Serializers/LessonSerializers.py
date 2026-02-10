@@ -8,7 +8,6 @@ import os
 class LessonSerializer(DynamicFieldsModelSerializer):
     file_type = serializers.SerializerMethodField()
     file_url = serializers.SerializerMethodField()
-    google_drive_preview_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Lesson
@@ -19,13 +18,16 @@ class LessonSerializer(DynamicFieldsModelSerializer):
             "file",
             "file_url",
             "file_type",
-            "google_drive_preview_url",
             "video_url",
+            "pdf_url",
             "is_active",
             "content",
             "order",
         ]
         read_only_fields = [
+            "id",
+            "file_url",
+            "file_type",
             "created_at",
             "updated_at",
             "created_by",
@@ -48,29 +50,6 @@ class LessonSerializer(DynamicFieldsModelSerializer):
             if request:
                 return request.build_absolute_uri(obj.file.url)
             return obj.file.url
-        return None
-
-    def get_google_drive_preview_url(self, obj):
-        """Get Google Drive preview URL for documents (PDF, DOC, etc.)."""
-        if obj.file:
-            file_url = self.get_file_url(obj)
-            file_type = self.get_file_type(obj)
-
-            # Document types that can be previewed in Google Drive viewer
-            previewable_types = [
-                "pdf",
-                "doc",
-                "docx",
-                "xls",
-                "xlsx",
-                "ppt",
-                "pptx",
-                "txt",
-            ]
-
-            if file_type in previewable_types:
-                # Google Drive viewer URL
-                return f"https://drive.google.com/viewerng/viewer?embedded=true&url={file_url}"
         return None
 
     def create(self, validated_data):

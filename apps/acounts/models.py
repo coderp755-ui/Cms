@@ -7,6 +7,26 @@ from apps.common.models import (
 )
 
 
+class Branch(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin):
+    """Branch model for multi-branch management"""
+    
+    name = models.CharField(max_length=200, unique=True)
+    code = models.CharField(max_length=20, unique=True)
+    address = models.TextField(blank=True)
+    phone = models.CharField(max_length=15, blank=True)
+    email = models.EmailField(blank=True)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        db_table = "branches"
+        ordering = ["name"]
+        verbose_name = "Branch"
+        verbose_name_plural = "Branches"
+    
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+
 class User(
     AbstractUser, BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin
 ):
@@ -18,6 +38,20 @@ class User(
     ]
 
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="student")
+    branch = models.ForeignKey(
+        Branch,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="users",
+        help_text="Branch assignment for admin, teacher, and student"
+    )
+    enrolled_courses = models.ManyToManyField(
+        'classes.Course',
+        blank=True,
+        related_name='enrolled_students',
+        help_text='Courses the student is enrolled in'
+    )
 
     is_super = models.BooleanField(default=False)
     employee_id = models.CharField(max_length=20, unique=True, blank=True, null=True)
@@ -131,13 +165,6 @@ class StudentProfile(
     guardian_phone = models.CharField(max_length=15)
     guardian_email = models.EmailField(blank=True)
 
-    # Academic Performance
-    current_gpa = models.DecimalField(
-        max_digits=4, decimal_places=2, null=True, blank=True
-    )
-    attendance_percentage = models.DecimalField(
-        max_digits=5, decimal_places=2, null=True, blank=True
-    )
 
     # Additional Student Info
     previous_school = models.CharField(max_length=200, blank=True)

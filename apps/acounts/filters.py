@@ -3,7 +3,7 @@ Filters for User and Profile models.
 """
 
 from django_filters import rest_framework as filters
-from apps.acounts.models import User, StudentProfile, TeacherProfile
+from apps.acounts.models import User, StudentProfile, TeacherProfile, Branch
 
 
 class UserFilterSet(filters.FilterSet):
@@ -45,6 +45,18 @@ class UserFilterSet(filters.FilterSet):
 
     # Status filters
     is_active = filters.BooleanFilter(help_text="Filter by active status (true/false)")
+    
+    # Branch filter
+    branch = filters.ModelChoiceFilter(
+        queryset=Branch.objects.filter(is_active=True),
+        help_text="Filter by branch ID"
+    )
+    
+    # Course enrollment filter
+    enrolled_in_course = filters.NumberFilter(
+        method="filter_by_enrolled_course",
+        help_text="Filter students by enrolled course ID"
+    )
 
     class Meta:
         model = User
@@ -58,7 +70,13 @@ class UserFilterSet(filters.FilterSet):
             "username",
             "email",
             "is_active",
+            "branch",
+            "enrolled_in_course",
         ]
+    
+    def filter_by_enrolled_course(self, queryset, name, value):
+        """Filter users by enrolled course."""
+        return queryset.filter(enrolled_courses__id=value)
 
     def filter_by_name(self, queryset, name, value):
         """

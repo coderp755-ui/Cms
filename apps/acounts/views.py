@@ -15,6 +15,7 @@ from apps.common.paginations.default_paginations import CustomDefaultPagination
 from apps.acounts.models import User, UserProfile, StudentProfile, TeacherProfile
 from apps.acounts.Serializers.account_serializers import (
     Self,
+    BranchSerializer,
     UserSerializer,
     UserProfileSerializer,
     StudentProfileSerializer,
@@ -29,6 +30,57 @@ from apps.acounts.filters import (
     StudentProfileFilterSet,
     TeacherProfileFilterSet,
 )
+from apps.acounts.models import Branch
+
+
+
+
+class BranchViewSet(AbstractViewSet):
+    """
+    ViewSet for Branch model with CRUD operations.
+
+    Permissions:
+    - Superadmin: Full access - can add/edit/delete all branches
+    - Admin: Can view branches only
+    - Teacher & Student: Can view branches only
+    """
+
+    queryset = Branch.objects.all()
+    serializer_class = BranchSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = CustomDefaultPagination
+    search_fields = ["name", "code", "address", "phone", "email"]
+    ordering_fields = ["id", "name", "code", "created_at"]
+    ordering = ["name"]
+
+    def get_queryset(self):
+        """Filter branches based on user role."""
+        queryset = super().get_queryset()
+
+        if not hasattr(self, "request") or not self.request:
+            return queryset
+
+        user = self.request.user
+        if not user or not user.is_authenticated:
+            return queryset.none()
+
+        # Superadmin can see all branches
+        if user.role == "superadmin":
+            return queryset
+
+        # Admin, Teacher, Student can see active branches
+        return queryset.filter(is_active=True)
+
+    def get_permissions(self):
+        """Apply different permissions based on action."""
+        if self.action in ["list", "retrieve"]:
+            # All authenticated users can view branches
+            permission_classes = [permissions.IsAuthenticated]
+        else:
+            # Only superadmin can create/update/delete branches
+            permission_classes = [permissions.IsAuthenticated, IsAdmin]
+
+        return [permission() for permission in permission_classes]
 
 
 class UserViewSet(AbstractViewSet):
@@ -66,7 +118,7 @@ class UserViewSet(AbstractViewSet):
     ordering = ["-date_joined"]
 
     def get_queryset(self):
-        """Filter queryset based on user role and permissions."""
+        """Filter queryset based on user role and permissions with branch filtering."""
         # Exclude superadmin by default (is_deleted filter handled by AbstractViewSet)
         queryset = super().get_queryset().exclude(role="superadmin")
 
@@ -80,17 +132,148 @@ class UserViewSet(AbstractViewSet):
         # Superadmin can see all users (including other superadmins)
         if user.role == "superadmin":
             return User.objects.all()
-        # Admin can see all except superadmin
+        # Branch Admin can only see users from their branch
         elif user.role == "admin":
-            return queryset
-        # Teachers can see students and teachers only
+            if user.branch:
+                # Branch admin can only see users from their branch
+                return queryset.filter(branch=user.branch)
+            else:
+                # Admin without branch can see all (backward compatibility)
+                return queryset
+        # Teachers can see students and teachers from their branch only
         elif user.role == "teacher":
-            return queryset.filter(role__in=["student", "teacher"])
+            if user.branch:
+                return queryset.filter(role__in=["student", "teacher"], branch=user.branch)
+            else:
+                return queryset.filter(role__in=["student", "teacher"])
         # Students can only see themselves
         elif user.role == "student":
             return queryset.filter(id=user.id)
 
         return queryset.none()
+
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def enroll_courses(self, request, pk=None):
+        """Enroll a student in courses. Admin and Teacher can enroll students."""
+        try:
+            user = self.get_object()
+            
+            if user.role != "student":
+                return self.error_response(
+                    message="Only students can be enrolled in courses",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            # Check permission - only admin and teacher can enroll
+            if request.user.role not in ["superadmin", "admin", "teacher"]:
+                return self.error_response(
+                    message="You don't have permission to enroll students",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+            
+            # Teacher can only enroll students from their branch
+            if request.user.role == "teacher":
+                if request.user.branch != user.branch:
+                    return self.error_response(
+                        message="You can only enroll students from your branch",
+                        status_code=status.HTTP_403_FORBIDDEN,
+                    )
+            
+            course_ids = request.data.get("course_ids", [])
+            if not course_ids:
+                return self.error_response(
+                    message="course_ids is required",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            from apps.classes.models import Course
+            
+            # Validate courses exist and belong to the same branch
+            courses = Course.objects.filter(id__in=course_ids, is_active=True, is_deleted=False)
+            
+            if not courses.exists():
+                return self.error_response(
+                    message="No valid courses found",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            # Check if courses belong to user's branch
+            if user.branch:
+                invalid_courses = courses.exclude(branch=user.branch)
+                if invalid_courses.exists():
+                    return self.error_response(
+                        message="Some courses do not belong to the student's branch",
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                    )
+            
+            # Enroll student in courses
+            user.enrolled_courses.set(courses)
+            
+            return self.success_response(
+                message=f"Student enrolled in {courses.count()} course(s) successfully",
+                data={
+                    "enrolled_courses": [
+                        {"id": c.id, "title": c.title, "course_type": c.course_type}
+                        for c in courses
+                    ]
+                }
+            )
+        except Exception as e:
+            return self.exception_response(e)
+    
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def unenroll_courses(self, request, pk=None):
+        """Unenroll a student from courses. Admin and Teacher can unenroll students."""
+        try:
+            user = self.get_object()
+            
+            if user.role != "student":
+                return self.error_response(
+                    message="Only students can be unenrolled from courses",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            # Check permission - only admin and teacher can unenroll
+            if request.user.role not in ["superadmin", "admin", "teacher"]:
+                return self.error_response(
+                    message="You don't have permission to unenroll students",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+            
+            # Teacher can only unenroll students from their branch
+            if request.user.role == "teacher":
+                if request.user.branch != user.branch:
+                    return self.error_response(
+                        message="You can only unenroll students from your branch",
+                        status_code=status.HTTP_403_FORBIDDEN,
+                    )
+            
+            course_ids = request.data.get("course_ids", [])
+            if not course_ids:
+                return self.error_response(
+                    message="course_ids is required",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            from apps.classes.models import Course
+            
+            # Remove courses from enrollment
+            courses = Course.objects.filter(id__in=course_ids)
+            user.enrolled_courses.remove(*courses)
+            
+            return self.success_response(
+                message=f"Student unenrolled from {courses.count()} course(s) successfully"
+            )
+        except Exception as e:
+            return self.exception_response(e)
 
     @action(
         detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated]
@@ -218,7 +401,7 @@ class UserProfileViewSet(AbstractViewSet):
     pagination_class = CustomDefaultPagination
 
     def get_queryset(self):
-        """Filter profiles based on user permissions."""
+        """Filter profiles based on user permissions with branch filtering."""
         queryset = super().get_queryset()
 
         if not hasattr(self, "request") or not self.request:
@@ -228,10 +411,19 @@ class UserProfileViewSet(AbstractViewSet):
         if not user or not user.is_authenticated:
             return queryset.none()
 
-        if user.role in ["superadmin", "admin"]:
+        if user.role == "superadmin":
             return queryset
+        elif user.role == "admin":
+            if user.branch:
+                # Branch admin can only see profiles from their branch
+                return queryset.filter(user__branch=user.branch)
+            else:
+                return queryset
         elif user.role == "teacher":
-            return queryset.filter(user__role__in=["student", "teacher"])
+            if user.branch:
+                return queryset.filter(user__role__in=["student", "teacher"], user__branch=user.branch)
+            else:
+                return queryset.filter(user__role__in=["student", "teacher"])
         elif user.role == "student":
             return queryset.filter(user=user)
 
@@ -272,7 +464,7 @@ class StudentProfileViewSet(AbstractViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        """Filter student profiles based on user permissions."""
+        """Filter student profiles based on user permissions with branch filtering."""
         queryset = super().get_queryset()
 
         if not hasattr(self, "request") or not self.request:
@@ -282,8 +474,19 @@ class StudentProfileViewSet(AbstractViewSet):
         if not user or not user.is_authenticated:
             return queryset.none()
 
-        if user.role in ["superadmin", "admin", "teacher"]:
+        if user.role == "superadmin":
             return queryset
+        elif user.role == "admin":
+            if user.branch:
+                # Branch admin can only see students from their branch
+                return queryset.filter(user__branch=user.branch)
+            else:
+                return queryset
+        elif user.role == "teacher":
+            if user.branch:
+                return queryset.filter(user__branch=user.branch)
+            else:
+                return queryset
         elif user.role == "student":
             return queryset.filter(user=user)
 
@@ -356,7 +559,7 @@ class TeacherProfileViewSet(AbstractViewSet):
     ordering = ["-created_at"]
 
     def get_queryset(self):
-        """Filter teacher profiles based on user permissions."""
+        """Filter teacher profiles based on user permissions with branch filtering."""
         queryset = super().get_queryset()
 
         if not hasattr(self, "request") or not self.request:
@@ -366,10 +569,19 @@ class TeacherProfileViewSet(AbstractViewSet):
         if not user or not user.is_authenticated:
             return queryset.none()
 
-        if user.role in ["superadmin", "admin"]:
+        if user.role == "superadmin":
             return queryset
+        elif user.role == "admin":
+            if user.branch:
+                # Branch admin can only see teachers from their branch
+                return queryset.filter(user__branch=user.branch)
+            else:
+                return queryset
         elif user.role == "teacher":
-            return queryset.filter(user__role="teacher")
+            if user.branch:
+                return queryset.filter(user__role="teacher", user__branch=user.branch)
+            else:
+                return queryset.filter(user__role="teacher")
 
         return queryset.none()
 
