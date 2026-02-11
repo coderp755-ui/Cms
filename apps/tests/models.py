@@ -78,7 +78,8 @@ class Question(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixi
 
 
 class QuestionOption(
-    BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin):
+    BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin
+):
     question = models.ForeignKey(
         Question, on_delete=models.CASCADE, related_name="options"
     )

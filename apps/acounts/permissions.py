@@ -72,18 +72,18 @@ class IsBranchAdmin(permissions.BasePermission):
             and request.user.role == "admin"
             and request.user.branch is not None
         )
-    
+
     def has_object_permission(self, request, view, obj):
         """Check if the object belongs to the same branch as the admin"""
         if request.user.role == "superadmin":
             return True
-        
+
         # For User objects
-        if hasattr(obj, 'branch'):
+        if hasattr(obj, "branch"):
             return obj.branch == request.user.branch
-        
+
         # For profile objects (StudentProfile, TeacherProfile, UserProfile)
-        if hasattr(obj, 'user') and hasattr(obj.user, 'branch'):
+        if hasattr(obj, "user") and hasattr(obj.user, "branch"):
             return obj.user.branch == request.user.branch
-        
+
         return False

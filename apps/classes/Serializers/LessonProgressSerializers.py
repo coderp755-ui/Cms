@@ -30,16 +30,14 @@ class LessonProgressSerializer(serializers.ModelSerializer):
         """Create or update lesson progress."""
         user = validated_data.get("user")
         lesson = validated_data.get("lesson")
-        
+
         progress, created = LessonProgress.objects.get_or_create(
-            user=user,
-            lesson=lesson,
-            defaults=validated_data
+            user=user, lesson=lesson, defaults=validated_data
         )
-        
+
         if not created:
             for key, value in validated_data.items():
                 setattr(progress, key, value)
             progress.save()
-        
+
         return progress

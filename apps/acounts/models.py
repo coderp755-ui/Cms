@@ -9,20 +9,20 @@ from apps.common.models import (
 
 class Branch(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin):
     """Branch model for multi-branch management"""
-    
+
     name = models.CharField(max_length=200, unique=True)
     code = models.CharField(max_length=20, unique=True)
     address = models.TextField(blank=True)
     phone = models.CharField(max_length=15, blank=True)
     email = models.EmailField(blank=True)
     is_active = models.BooleanField(default=True)
-    
+
     class Meta:
         db_table = "branches"
         ordering = ["name"]
         verbose_name = "Branch"
         verbose_name_plural = "Branches"
-    
+
     def __str__(self):
         return f"{self.name} ({self.code})"
 
@@ -44,18 +44,26 @@ class User(
         null=True,
         blank=True,
         related_name="users",
-        help_text="Branch assignment for admin, teacher, and student"
+        help_text="Branch assignment for admin, teacher, and student",
     )
     enrolled_courses = models.ManyToManyField(
-        'classes.Course',
+        "classes.Course",
         blank=True,
-        related_name='enrolled_students',
-        help_text='Courses the student is enrolled in'
+        related_name="enrolled_students",
+        help_text="Courses the student is enrolled in",
     )
 
     is_super = models.BooleanField(default=False)
     employee_id = models.CharField(max_length=20, unique=True, blank=True, null=True)
     student_id = models.CharField(max_length=20, unique=True, blank=True, null=True)
+
+    # Password management fields
+    must_change_password = models.BooleanField(
+        default=True, help_text="User must change password on first login"
+    )
+    password_reset_otp = models.CharField(max_length=6, blank=True, null=True)
+    otp_created_at = models.DateTimeField(blank=True, null=True)
+    otp_expires_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         db_table = "users"
@@ -89,6 +97,42 @@ class User(
             std_id = f"STD{random.randint(10000, 99999)}"
             if not User.objects.filter(student_id=std_id).exists():
                 return std_id
+
+    def generate_otp(self):
+        """Generate 6-digit OTP and set expiry time"""
+        import random
+        from django.utils import timezone
+        from datetime import timedelta
+
+        self.password_reset_otp = str(random.randint(100000, 999999))
+        self.otp_created_at = timezone.now()
+        self.otp_expires_at = timezone.now() + timedelta(
+            minutes=10
+        )  # OTP valid for 10 minutes
+        self.save()
+        return self.password_reset_otp
+
+    def verify_otp(self, otp):
+        """Verify if OTP is valid and not expired"""
+        from django.utils import timezone
+
+        if not self.password_reset_otp or not self.otp_expires_at:
+            return False
+
+        if self.password_reset_otp != otp:
+            return False
+
+        if timezone.now() > self.otp_expires_at:
+            return False
+
+        return True
+
+    def clear_otp(self):
+        """Clear OTP after successful password reset"""
+        self.password_reset_otp = None
+        self.otp_created_at = None
+        self.otp_expires_at = None
+        self.save()
 
     def __str__(self):
         if self.role == "student" and self.student_id:
@@ -154,17 +198,16 @@ class StudentProfile(
     )
 
     # Academic Info
-    grade_level = models.CharField(max_length=20)
+    grade_level = models.CharField(max_length=20, blank=True)
     roll_number = models.CharField(max_length=20, blank=True)
-    admission_date = models.DateField()
+    admission_date = models.DateField(null=True, blank=True)
 
     # Parent/Guardian Info
-    father_name = models.CharField(max_length=100)
-    mother_name = models.CharField(max_length=100)
+    father_name = models.CharField(max_length=100, blank=True)
+    mother_name = models.CharField(max_length=100, blank=True)
     guardian_name = models.CharField(max_length=100, blank=True)
-    guardian_phone = models.CharField(max_length=15)
+    guardian_phone = models.CharField(max_length=15, blank=True)
     guardian_email = models.EmailField(blank=True)
-
 
     # Additional Student Info
     previous_school = models.CharField(max_length=200, blank=True)
@@ -189,13 +232,13 @@ class TeacherProfile(
 
     # Professional Info
     employee_code = models.CharField(max_length=20, unique=True, blank=True)
-    department = models.CharField(max_length=100)
-    subject_specialization = models.CharField(max_length=100)
-    qualification = models.CharField(max_length=200)
+    department = models.CharField(max_length=100, blank=True)
+    subject_specialization = models.CharField(max_length=100, blank=True)
+    qualification = models.CharField(max_length=200, blank=True)
     experience_years = models.PositiveIntegerField(default=0)
 
     # Employment Details
-    hire_date = models.DateField()
+    hire_date = models.DateField(null=True, blank=True)
     salary = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     employment_type = models.CharField(
         max_length=20,

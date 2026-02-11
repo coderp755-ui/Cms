@@ -45,17 +45,16 @@ class UserFilterSet(filters.FilterSet):
 
     # Status filters
     is_active = filters.BooleanFilter(help_text="Filter by active status (true/false)")
-    
+
     # Branch filter
     branch = filters.ModelChoiceFilter(
-        queryset=Branch.objects.filter(is_active=True),
-        help_text="Filter by branch ID"
+        queryset=Branch.objects.filter(is_active=True), help_text="Filter by branch ID"
     )
-    
+
     # Course enrollment filter
     enrolled_in_course = filters.NumberFilter(
         method="filter_by_enrolled_course",
-        help_text="Filter students by enrolled course ID"
+        help_text="Filter students by enrolled course ID",
     )
 
     class Meta:
@@ -73,7 +72,7 @@ class UserFilterSet(filters.FilterSet):
             "branch",
             "enrolled_in_course",
         ]
-    
+
     def filter_by_enrolled_course(self, queryset, name, value):
         """Filter users by enrolled course."""
         return queryset.filter(enrolled_courses__id=value)

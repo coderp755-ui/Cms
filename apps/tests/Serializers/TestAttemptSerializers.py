@@ -4,7 +4,9 @@ from apps.common.serializers import DynamicFieldsModelSerializer
 
 
 class StudentAnswerSerializer(DynamicFieldsModelSerializer):
-    question_text = serializers.CharField(source="question.question_text", read_only=True)
+    question_text = serializers.CharField(
+        source="question.question_text", read_only=True
+    )
     selected_option_text = serializers.CharField(
         source="selected_option.option_text", read_only=True
     )
@@ -28,11 +30,11 @@ class StudentAnswerSerializer(DynamicFieldsModelSerializer):
 
     def validate_unique_together(self, data):
         attempt = data.get("attempt", self.instance.attempt if self.instance else None)
-        question = data.get("question", self.instance.question if self.instance else None)
-
-        qs = StudentAnswer.objects.filter(
-            attempt=attempt, question=question
+        question = data.get(
+            "question", self.instance.question if self.instance else None
         )
+
+        qs = StudentAnswer.objects.filter(attempt=attempt, question=question)
 
         if self.instance:
             qs = qs.exclude(id=self.instance.id)
@@ -75,9 +77,7 @@ class TestAttemptSerializer(DynamicFieldsModelSerializer):
         student = data.get("student", self.instance.student if self.instance else None)
         test = data.get("test", self.instance.test if self.instance else None)
 
-        qs = TestAttempt.objects.filter(
-            student=student, test=test
-        )
+        qs = TestAttempt.objects.filter(student=student, test=test)
 
         if self.instance:
             qs = qs.exclude(id=self.instance.id)

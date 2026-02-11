@@ -47,9 +47,7 @@ class QuestionSerializer(DynamicFieldsModelSerializer):
         )
         order = data.get("order", self.instance.order if self.instance else None)
 
-        qs = Question.objects.filter(
-            test_section=test_section, order=order
-        )
+        qs = Question.objects.filter(test_section=test_section, order=order)
 
         if self.instance:
             qs = qs.exclude(id=self.instance.id)

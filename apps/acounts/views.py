@@ -33,8 +33,6 @@ from apps.acounts.filters import (
 from apps.acounts.models import Branch
 
 
-
-
 class BranchViewSet(AbstractViewSet):
     """
     ViewSet for Branch model with CRUD operations.
@@ -143,7 +141,9 @@ class UserViewSet(AbstractViewSet):
         # Teachers can see students and teachers from their branch only
         elif user.role == "teacher":
             if user.branch:
-                return queryset.filter(role__in=["student", "teacher"], branch=user.branch)
+                return queryset.filter(
+                    role__in=["student", "teacher"], branch=user.branch
+                )
             else:
                 return queryset.filter(role__in=["student", "teacher"])
         # Students can only see themselves
@@ -161,20 +161,20 @@ class UserViewSet(AbstractViewSet):
         """Enroll a student in courses. Admin and Teacher can enroll students."""
         try:
             user = self.get_object()
-            
+
             if user.role != "student":
                 return self.error_response(
                     message="Only students can be enrolled in courses",
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             # Check permission - only admin and teacher can enroll
             if request.user.role not in ["superadmin", "admin", "teacher"]:
                 return self.error_response(
                     message="You don't have permission to enroll students",
                     status_code=status.HTTP_403_FORBIDDEN,
                 )
-            
+
             # Teacher can only enroll students from their branch
             if request.user.role == "teacher":
                 if request.user.branch != user.branch:
@@ -182,25 +182,27 @@ class UserViewSet(AbstractViewSet):
                         message="You can only enroll students from your branch",
                         status_code=status.HTTP_403_FORBIDDEN,
                     )
-            
+
             course_ids = request.data.get("course_ids", [])
             if not course_ids:
                 return self.error_response(
                     message="course_ids is required",
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             from apps.classes.models import Course
-            
+
             # Validate courses exist and belong to the same branch
-            courses = Course.objects.filter(id__in=course_ids, is_active=True, is_deleted=False)
-            
+            courses = Course.objects.filter(
+                id__in=course_ids, is_active=True, is_deleted=False
+            )
+
             if not courses.exists():
                 return self.error_response(
                     message="No valid courses found",
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             # Check if courses belong to user's branch
             if user.branch:
                 invalid_courses = courses.exclude(branch=user.branch)
@@ -209,10 +211,10 @@ class UserViewSet(AbstractViewSet):
                         message="Some courses do not belong to the student's branch",
                         status_code=status.HTTP_400_BAD_REQUEST,
                     )
-            
+
             # Enroll student in courses
             user.enrolled_courses.set(courses)
-            
+
             return self.success_response(
                 message=f"Student enrolled in {courses.count()} course(s) successfully",
                 data={
@@ -220,11 +222,11 @@ class UserViewSet(AbstractViewSet):
                         {"id": c.id, "title": c.title, "course_type": c.course_type}
                         for c in courses
                     ]
-                }
+                },
             )
         except Exception as e:
             return self.exception_response(e)
-    
+
     @action(
         detail=True,
         methods=["post"],
@@ -234,20 +236,20 @@ class UserViewSet(AbstractViewSet):
         """Unenroll a student from courses. Admin and Teacher can unenroll students."""
         try:
             user = self.get_object()
-            
+
             if user.role != "student":
                 return self.error_response(
                     message="Only students can be unenrolled from courses",
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             # Check permission - only admin and teacher can unenroll
             if request.user.role not in ["superadmin", "admin", "teacher"]:
                 return self.error_response(
                     message="You don't have permission to unenroll students",
                     status_code=status.HTTP_403_FORBIDDEN,
                 )
-            
+
             # Teacher can only unenroll students from their branch
             if request.user.role == "teacher":
                 if request.user.branch != user.branch:
@@ -255,20 +257,20 @@ class UserViewSet(AbstractViewSet):
                         message="You can only unenroll students from your branch",
                         status_code=status.HTTP_403_FORBIDDEN,
                     )
-            
+
             course_ids = request.data.get("course_ids", [])
             if not course_ids:
                 return self.error_response(
                     message="course_ids is required",
                     status_code=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             from apps.classes.models import Course
-            
+
             # Remove courses from enrollment
             courses = Course.objects.filter(id__in=course_ids)
             user.enrolled_courses.remove(*courses)
-            
+
             return self.success_response(
                 message=f"Student unenrolled from {courses.count()} course(s) successfully"
             )
@@ -294,9 +296,46 @@ class UserViewSet(AbstractViewSet):
                 return self.error_response(message="Old password is incorrect")
 
             user.set_password(new_password)
+            user.must_change_password = False  # Mark password as changed
             user.save()
 
             return self.success_response(message="Password changed successfully")
+        except Exception as e:
+            return self.exception_response(e)
+
+    @action(
+        detail=False, methods=["post"], permission_classes=[permissions.IsAuthenticated]
+    )
+    def force_change_password(self, request):
+        """Force change password on first login (no old password required)."""
+        try:
+            new_password = request.data.get("new_password")
+            confirm_password = request.data.get("confirm_password")
+
+            if not new_password or not confirm_password:
+                return self.error_response(
+                    message="Both new_password and confirm_password are required"
+                )
+
+            if new_password != confirm_password:
+                return self.error_response(message="Passwords do not match")
+
+            user = request.user
+
+            # Only allow if user must change password
+            if not user.must_change_password:
+                return self.error_response(
+                    message="You are not required to change your password. Use change_password endpoint instead.",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user.set_password(new_password)
+            user.must_change_password = False
+            user.save()
+
+            return self.success_response(
+                message="Password changed successfully. You can now login with your new password."
+            )
         except Exception as e:
             return self.exception_response(e)
 
@@ -421,7 +460,9 @@ class UserProfileViewSet(AbstractViewSet):
                 return queryset
         elif user.role == "teacher":
             if user.branch:
-                return queryset.filter(user__role__in=["student", "teacher"], user__branch=user.branch)
+                return queryset.filter(
+                    user__role__in=["student", "teacher"], user__branch=user.branch
+                )
             else:
                 return queryset.filter(user__role__in=["student", "teacher"])
         elif user.role == "student":
@@ -438,6 +479,61 @@ class UserProfileViewSet(AbstractViewSet):
             raise PermissionDenied("You can only update your own profile")
 
         super().perform_update(serializer)
+
+    @action(
+        detail=False,
+        methods=["post"],
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def create_own_profile(self, request):
+        """Allow any user to create their own basic profile."""
+        try:
+            user = request.user
+
+            # Check if profile already exists
+            if UserProfile.objects.filter(user=user).exists():
+                return self.error_response(
+                    message="Your user profile already exists",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Serializer will automatically use request.user.id from context
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(created_by=user)
+
+            return self.success_response(
+                message="User profile created successfully",
+                data=serializer.data,
+                status_code=status.HTTP_201_CREATED,
+            )
+        except Exception as e:
+            return self.exception_response(e)
+
+    @action(
+        detail=False,
+        methods=["get"],
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def my_profile(self, request):
+        """Get the authenticated user's own profile."""
+        try:
+            user = request.user
+
+            try:
+                profile = UserProfile.objects.get(user=user)
+                serializer = self.get_serializer(profile)
+                return self.success_response(
+                    message="User profile retrieved successfully",
+                    data=serializer.data,
+                )
+            except UserProfile.DoesNotExist:
+                return self.error_response(
+                    message="Your user profile has not been created yet. Please create your profile.",
+                    status_code=status.HTTP_404_NOT_FOUND,
+                )
+        except Exception as e:
+            return self.exception_response(e)
 
 
 class StudentProfileViewSet(AbstractViewSet):
@@ -501,6 +597,47 @@ class StudentProfileViewSet(AbstractViewSet):
 
         super().perform_create(serializer)
 
+    @action(
+        detail=False,
+        methods=["post"],
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def create_own_profile(self, request):
+        """Allow students to create their own profile."""
+        try:
+            user = request.user
+
+            # Only students can use this endpoint
+            if user.role != "student":
+                return self.error_response(
+                    message="This endpoint is only for students",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
+            # Check if profile already exists
+            if StudentProfile.objects.filter(user=user).exists():
+                return self.error_response(
+                    message="Your student profile already exists",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Serializer will automatically use request.user.id from context
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create_own(serializer)
+
+            return self.success_response(
+                message="Student profile created successfully",
+                data=serializer.data,
+                status_code=status.HTTP_201_CREATED,
+            )
+        except Exception as e:
+            return self.exception_response(e)
+
+    def perform_create_own(self, serializer):
+        """Save the student profile without permission check."""
+        serializer.save(created_by=self.request.user)
+
     def perform_update(self, serializer):
         """Validate user can update student profile."""
         user = self.request.user
@@ -510,6 +647,37 @@ class StudentProfileViewSet(AbstractViewSet):
             raise PermissionDenied("You can only update your own profile")
 
         super().perform_update(serializer)
+
+    @action(
+        detail=False,
+        methods=["get"],
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def my_profile(self, request):
+        """Get the authenticated student's own profile."""
+        try:
+            user = request.user
+
+            if user.role != "student":
+                return self.error_response(
+                    message="This endpoint is only for students",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
+            try:
+                profile = StudentProfile.objects.get(user=user)
+                serializer = self.get_serializer(profile)
+                return self.success_response(
+                    message="Student profile retrieved successfully",
+                    data=serializer.data,
+                )
+            except StudentProfile.DoesNotExist:
+                return self.error_response(
+                    message="Your student profile has not been created yet. Please create your profile.",
+                    status_code=status.HTTP_404_NOT_FOUND,
+                )
+        except Exception as e:
+            return self.exception_response(e)
 
     @action(
         detail=False,
@@ -594,6 +762,78 @@ class TeacherProfileViewSet(AbstractViewSet):
 
         super().perform_create(serializer)
 
+    @action(
+        detail=False,
+        methods=["post"],
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def create_own_profile(self, request):
+        """Allow teachers to create their own profile."""
+        try:
+            user = request.user
+
+            # Only teachers can use this endpoint
+            if user.role != "teacher":
+                return self.error_response(
+                    message="This endpoint is only for teachers",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
+            # Check if profile already exists
+            if TeacherProfile.objects.filter(user=user).exists():
+                return self.error_response(
+                    message="Your teacher profile already exists",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Serializer will automatically use request.user.id from context
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create_own(serializer)
+
+            return self.success_response(
+                message="Teacher profile created successfully",
+                data=serializer.data,
+                status_code=status.HTTP_201_CREATED,
+            )
+        except Exception as e:
+            return self.exception_response(e)
+
+    def perform_create_own(self, serializer):
+        """Save the teacher profile without permission check."""
+        serializer.save(created_by=self.request.user)
+
+    @action(
+        detail=False,
+        methods=["get"],
+        permission_classes=[permissions.IsAuthenticated],
+    )
+    def my_profile(self, request):
+        """Get the authenticated teacher's own profile."""
+        try:
+            user = request.user
+
+            if user.role != "teacher":
+                return self.error_response(
+                    message="This endpoint is only for teachers",
+                    status_code=status.HTTP_403_FORBIDDEN,
+                )
+
+            try:
+                profile = TeacherProfile.objects.get(user=user)
+                serializer = self.get_serializer(profile)
+                return self.success_response(
+                    message="Teacher profile retrieved successfully",
+                    data=serializer.data,
+                )
+            except TeacherProfile.DoesNotExist:
+                return self.error_response(
+                    message="Your teacher profile has not been created yet. Please create your profile.",
+                    status_code=status.HTTP_404_NOT_FOUND,
+                )
+        except Exception as e:
+            return self.exception_response(e)
+
     def perform_update(self, serializer):
         """Validate user can update teacher profile."""
         user = self.request.user
@@ -674,6 +914,111 @@ class SelfView(APIView, ResponseHandlerMixin):
             return self.success_response(
                 message="User information retrieved successfully",
                 data=data,
+            )
+        except Exception as e:
+            return self.exception_response(e)
+
+
+class ForgotPasswordRequestView(APIView, ResponseHandlerMixin):
+    """Request OTP for password reset via email."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        """Send OTP to user's email for password reset."""
+        try:
+            email = request.data.get("email")
+
+            if not email:
+                return self.error_response(
+                    message="Email is required",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+                user = User.objects.get(email=email, is_active=True)
+            except User.DoesNotExist:
+                return self.error_response(
+                    message="No active user found with this email",
+                    status_code=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Generate OTP
+            otp = user.generate_otp()
+
+            # Send OTP via email
+            from django.core.mail import send_mail
+            from django.conf import settings
+
+            try:
+                send_mail(
+                    subject="Password Reset OTP",
+                    message=f"Your OTP for password reset is: {otp}\n\nThis OTP is valid for 10 minutes.\n\nIf you did not request this, please ignore this email.",
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    fail_silently=False,
+                )
+
+                return self.success_response(
+                    message=f"OTP sent successfully to {email}. Please check your email.",
+                    data={"email": email},
+                )
+            except Exception as e:
+                return self.error_response(
+                    message=f"Failed to send email: {str(e)}",
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+        except Exception as e:
+            return self.exception_response(e)
+
+
+class ForgotPasswordVerifyView(APIView, ResponseHandlerMixin):
+    """Verify OTP and reset password."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        """Verify OTP and reset password."""
+        try:
+            email = request.data.get("email")
+            otp = request.data.get("otp")
+            new_password = request.data.get("new_password")
+            confirm_password = request.data.get("confirm_password")
+
+            if not all([email, otp, new_password, confirm_password]):
+                return self.error_response(
+                    message="Email, OTP, new_password, and confirm_password are required",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            if new_password != confirm_password:
+                return self.error_response(
+                    message="Passwords do not match",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            try:
+                user = User.objects.get(email=email, is_active=True)
+            except User.DoesNotExist:
+                return self.error_response(
+                    message="No active user found with this email",
+                    status_code=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Verify OTP
+            if not user.verify_otp(otp):
+                return self.error_response(
+                    message="Invalid or expired OTP",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Reset password
+            user.set_password(new_password)
+            user.must_change_password = False
+            user.clear_otp()
+
+            return self.success_response(
+                message="Password reset successfully. You can now login with your new password."
             )
         except Exception as e:
             return self.exception_response(e)

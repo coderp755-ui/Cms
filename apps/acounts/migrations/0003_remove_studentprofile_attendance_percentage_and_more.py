@@ -4,18 +4,17 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('acounts', '0002_user_enrolled_courses_branch_user_branch'),
+        ("acounts", "0002_user_enrolled_courses_branch_user_branch"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='studentprofile',
-            name='attendance_percentage',
+            model_name="studentprofile",
+            name="attendance_percentage",
         ),
         migrations.RemoveField(
-            model_name='studentprofile',
-            name='current_gpa',
+            model_name="studentprofile",
+            name="current_gpa",
         ),
     ]

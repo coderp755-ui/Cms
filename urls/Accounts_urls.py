@@ -8,6 +8,8 @@ from apps.acounts.views import (
     TeacherProfileViewSet,
     LogoutView,
     SelfView,
+    ForgotPasswordRequestView,
+    ForgotPasswordVerifyView,
 )
 
 # Create router and register viewsets
@@ -22,4 +24,14 @@ urlpatterns = [
     path("", include(router.urls)),
     path("logout/", LogoutView.as_view(), name="logout"),
     path("self/", SelfView.as_view(), name="self"),
+    path(
+        "forgot-password/request/",
+        ForgotPasswordRequestView.as_view(),
+        name="forgot-password-request",
+    ),
+    path(
+        "forgot-password/verify/",
+        ForgotPasswordVerifyView.as_view(),
+        name="forgot-password-verify",
+    ),
 ]

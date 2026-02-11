@@ -20,7 +20,7 @@ class CourseViewSet(AbstractViewSet):
     Permissions:
     - Create/Update/Delete: Superadmin, Admin, Teacher only
     - View (List/Retrieve): All authenticated users (including Students)
-    
+
     Branch Filtering:
     - Superadmin: Can see all courses
     - Branch Admin: Can only see courses from their branch
@@ -42,33 +42,35 @@ class CourseViewSet(AbstractViewSet):
             permission_classes = [IsTeacher, IsSuperAdmin, IsAdmin]
 
         return [permission() for permission in permission_classes]
-    
+
     def get_queryset(self):
         """Filter courses based on user's branch and enrollment."""
         queryset = super().get_queryset()
         user = self.request.user
-        
+
         if not user or not user.is_authenticated:
             return queryset.none()
-        
+
         # Superadmin can see all courses
         if user.role == "superadmin":
             return queryset
-        
+
         # Students can only see their enrolled courses
         if user.role == "student":
             if user.enrolled_courses.exists():
-                return queryset.filter(id__in=user.enrolled_courses.values_list('id', flat=True))
+                return queryset.filter(
+                    id__in=user.enrolled_courses.values_list("id", flat=True)
+                )
             else:
                 # If no enrolled courses, show courses from their branch
                 if user.branch:
                     return queryset.filter(branch=user.branch)
                 return queryset.none()
-        
+
         # Branch-based filtering for admin and teacher
         if user.branch:
             return queryset.filter(branch=user.branch)
-        
+
         # If user has no branch, return all courses (backward compatibility)
         return queryset
 
@@ -80,7 +82,7 @@ class SectionViewSet(AbstractViewSet):
     Permissions:
     - Create/Update/Delete: Superadmin, Admin, Teacher only
     - View (List/Retrieve): All authenticated users (including Students)
-    
+
     Branch Filtering:
     - Sections are filtered based on their course's branch
     """
@@ -99,33 +101,35 @@ class SectionViewSet(AbstractViewSet):
             permission_classes = [IsTeacher, IsSuperAdmin, IsAdmin]
 
         return [permission() for permission in permission_classes]
-    
+
     def get_queryset(self):
         """Filter sections based on user's branch and enrolled courses."""
         queryset = super().get_queryset()
         user = self.request.user
-        
+
         if not user or not user.is_authenticated:
             return queryset.none()
-        
+
         # Superadmin can see all sections
         if user.role == "superadmin":
             return queryset
-        
+
         # Students can only see sections from their enrolled courses
         if user.role == "student":
             if user.enrolled_courses.exists():
-                return queryset.filter(course__id__in=user.enrolled_courses.values_list('id', flat=True))
+                return queryset.filter(
+                    course__id__in=user.enrolled_courses.values_list("id", flat=True)
+                )
             else:
                 # If no enrolled courses, show sections from their branch courses
                 if user.branch:
                     return queryset.filter(course__branch=user.branch)
                 return queryset.none()
-        
+
         # Branch-based filtering through course for admin and teacher
         if user.branch:
             return queryset.filter(course__branch=user.branch)
-        
+
         # If user has no branch, return all sections (backward compatibility)
         return queryset
 
@@ -137,7 +141,7 @@ class LessonViewSet(AbstractViewSet):
     Permissions:
     - Create/Update/Delete: Superadmin, Admin, Teacher only
     - View (List/Retrieve): All authenticated users (including Students)
-    
+
     Branch Filtering:
     - Lessons are filtered based on their section's course's branch
     """
@@ -156,36 +160,39 @@ class LessonViewSet(AbstractViewSet):
             permission_classes = [IsTeacher, IsSuperAdmin, IsAdmin]
 
         return [permission() for permission in permission_classes]
-    
+
     def get_queryset(self):
         """Filter lessons based on user's branch and enrolled courses."""
         queryset = super().get_queryset()
         user = self.request.user
-        
+
         if not user or not user.is_authenticated:
             return queryset.none()
-        
+
         # Superadmin can see all lessons
         if user.role == "superadmin":
             return queryset
-        
+
         # Students can only see lessons from their enrolled courses
         if user.role == "student":
             if user.enrolled_courses.exists():
-                return queryset.filter(section__course__id__in=user.enrolled_courses.values_list('id', flat=True))
+                return queryset.filter(
+                    section__course__id__in=user.enrolled_courses.values_list(
+                        "id", flat=True
+                    )
+                )
             else:
                 # If no enrolled courses, show lessons from their branch courses
                 if user.branch:
                     return queryset.filter(section__course__branch=user.branch)
                 return queryset.none()
-        
+
         # Branch-based filtering through section and course for admin and teacher
         if user.branch:
             return queryset.filter(section__course__branch=user.branch)
-        
+
         # If user has no branch, return all lessons (backward compatibility)
         return queryset
-
 
 
 class LessonProgressViewSet(AbstractViewSet):
@@ -217,21 +224,21 @@ class LessonProgressViewSet(AbstractViewSet):
         """Filter progress by current user if not admin, with branch filtering."""
         queryset = super().get_queryset()
         user = self.request.user
-        
+
         if not user or not user.is_authenticated:
             return queryset.none()
-        
+
         # Superadmin can see all progress
         if user.role == "superadmin":
             return queryset
-        
+
         # Branch admin can see progress of users in their branch
         if user.role == "admin" and user.branch:
             return queryset.filter(user__branch=user.branch)
-        
+
         # Teachers can see progress of students in their branch
         if user.role == "teacher" and user.branch:
             return queryset.filter(user__branch=user.branch, user__role="student")
-        
+
         # Students can only see their own progress
         return queryset.filter(user=user)

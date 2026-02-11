@@ -25,9 +25,7 @@ class SectionResultSerializer(DynamicFieldsModelSerializer):
         result = data.get("result", self.instance.result if self.instance else None)
         section = data.get("section", self.instance.section if self.instance else None)
 
-        qs = SectionResult.objects.filter(
-            result=result, section=section
-        )
+        qs = SectionResult.objects.filter(result=result, section=section)
 
         if self.instance:
             qs = qs.exclude(id=self.instance.id)
@@ -70,9 +68,7 @@ class TestResultSerializer(DynamicFieldsModelSerializer):
         student = data.get("student", self.instance.student if self.instance else None)
         test = data.get("test", self.instance.test if self.instance else None)
 
-        qs = TestResult.objects.filter(
-            attempt=attempt, student=student, test=test
-        )
+        qs = TestResult.objects.filter(attempt=attempt, student=student, test=test)
 
         if self.instance:
             qs = qs.exclude(id=self.instance.id)

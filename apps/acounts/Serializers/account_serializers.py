@@ -1,14 +1,20 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
 from apps.common.serializers import DynamicFieldsModelSerializer
-from apps.acounts.models import Branch, User, UserProfile, StudentProfile, TeacherProfile
+from apps.acounts.models import (
+    Branch,
+    User,
+    UserProfile,
+    StudentProfile,
+    TeacherProfile,
+)
 
 
 class BranchSerializer(DynamicFieldsModelSerializer):
     """
     Branch serializer for multi-branch management.
     """
-    
+
     class Meta:
         model = Branch
         fields = [
@@ -34,7 +40,7 @@ class UserSerializer(DynamicFieldsModelSerializer):
         write_only=True, validators=[validate_password], required=False
     )
     password_confirm = serializers.CharField(write_only=True, required=False)
-    branch_name = serializers.CharField(source='branch.name', read_only=True)
+    branch_name = serializers.CharField(source="branch.name", read_only=True)
     enrolled_courses_details = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -74,7 +80,7 @@ class UserSerializer(DynamicFieldsModelSerializer):
         extra_kwargs = {
             "password": {"write_only": True},
         }
-    
+
     def get_enrolled_courses_details(self, obj):
         """Return enrolled courses with basic details"""
         if obj.role == "student" and obj.enrolled_courses.exists():
@@ -85,57 +91,63 @@ class UserSerializer(DynamicFieldsModelSerializer):
                     "course_type": course.course_type,
                     "branch": course.branch.name if course.branch else None,
                 }
-                for course in obj.enrolled_courses.filter(is_active=True, is_deleted=False)
+                for course in obj.enrolled_courses.filter(
+                    is_active=True, is_deleted=False
+                )
             ]
         return []
 
     def validate(self, attrs):
-        request = self.context.get('request')
-        
+        request = self.context.get("request")
+
         # Password validation
         if "password" in attrs and "password_confirm" in attrs:
             if attrs["password"] != attrs["password_confirm"]:
                 raise serializers.ValidationError("Passwords don't match")
-        
+
         # Branch-based user creation validation
         if request and request.user.is_authenticated:
-            user_role = attrs.get('role')
-            user_branch = attrs.get('branch')
-            
+            user_role = attrs.get("role")
+            user_branch = attrs.get("branch")
+
             # Only superadmin can create admins
-            if user_role == 'admin' and request.user.role != 'superadmin':
+            if user_role == "admin" and request.user.role != "superadmin":
                 raise serializers.ValidationError(
                     "Only superadmin can create admin users"
                 )
-            
+
             # Admin can only create users for their own branch
-            if request.user.role == 'admin':
+            if request.user.role == "admin":
                 if not request.user.branch:
                     raise serializers.ValidationError(
                         "Your account is not assigned to any branch. Please contact superadmin."
                     )
-                
+
                 # Force the branch to be the admin's branch
-                if user_role in ['admin', 'teacher', 'student']:
+                if user_role in ["admin", "teacher", "student"]:
                     if user_branch and user_branch != request.user.branch:
                         raise serializers.ValidationError(
                             f"You can only create users for your branch: {request.user.branch.name}"
                         )
                     # Auto-assign admin's branch if not provided
-                    attrs['branch'] = request.user.branch
-            
+                    attrs["branch"] = request.user.branch
+
             # Superadmin must assign branch when creating admin/teacher/student
-            if request.user.role == 'superadmin' and user_role in ['admin', 'teacher', 'student']:
+            if request.user.role == "superadmin" and user_role in [
+                "admin",
+                "teacher",
+                "student",
+            ]:
                 if not user_branch:
                     raise serializers.ValidationError(
                         f"Branch is required when creating {user_role} users"
                     )
-        
+
         # Validate enrolled courses belong to the same branch as user
         if "enrolled_courses" in attrs:
             branch = attrs.get("branch")
             enrolled_courses = attrs.get("enrolled_courses", [])
-            
+
             if branch and enrolled_courses:
                 for course in enrolled_courses:
                     if course.branch and course.branch != branch:
@@ -143,30 +155,30 @@ class UserSerializer(DynamicFieldsModelSerializer):
                             f"Course '{course.title}' belongs to branch '{course.branch.name}'. "
                             f"All enrolled courses must be from the user's branch: '{branch.name}'"
                         )
-        
+
         return attrs
 
     def create(self, validated_data):
         validated_data.pop("password_confirm", None)
         password = validated_data.pop("password")
-        
+
         # Handle enrolled_courses separately (ManyToMany field)
         enrolled_courses = validated_data.pop("enrolled_courses", [])
-        
+
         user = User.objects.create_user(**validated_data)
         user.set_password(password)
         user.save()
-        
+
         # Set enrolled courses after creating the user
         if enrolled_courses:
             user.enrolled_courses.set(enrolled_courses)
-        
+
         return user
 
     def update(self, instance, validated_data):
         validated_data.pop("password_confirm", None)
         password = validated_data.pop("password", None)
-        
+
         # Handle enrolled_courses separately (ManyToMany field)
         enrolled_courses = validated_data.pop("enrolled_courses", None)
 
@@ -177,11 +189,11 @@ class UserSerializer(DynamicFieldsModelSerializer):
             instance.set_password(password)
 
         instance.save()
-        
+
         # Set enrolled courses after saving the instance
         if enrolled_courses is not None:
             instance.enrolled_courses.set(enrolled_courses)
-        
+
         return instance
 
 
@@ -190,7 +202,7 @@ class UserProfileSerializer(DynamicFieldsModelSerializer):
     User profile serializer with audit fields and dynamic field selection.
     """
 
-    user_id = serializers.IntegerField(write_only=True, required=True)
+    user_id = serializers.IntegerField(write_only=True, required=False)
     user = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -212,26 +224,45 @@ class UserProfileSerializer(DynamicFieldsModelSerializer):
             "linkedin_url",
             "is_active_profile",
         ]
-        read_only_fields = ["created_at", "updated_at", "created_by", "updated_by", "user"]
-    
+        read_only_fields = [
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+            "user",
+        ]
+
+    def validate(self, attrs):
+        # If user_id is not provided, check if we have it in context (for self-registration)
+        if "user_id" not in attrs:
+            request = self.context.get("request")
+            if request and hasattr(request, "user") and request.user.is_authenticated:
+                attrs["user_id"] = request.user.id
+            else:
+                raise serializers.ValidationError(
+                    {"user_id": "This field is required."}
+                )
+        return attrs
+
     def create(self, validated_data):
-        user_id = validated_data.pop('user_id')
+        user_id = validated_data.pop("user_id")
         user = User.objects.get(id=user_id)
-        validated_data['user'] = user
+        validated_data["user"] = user
         return super().create(validated_data)
-    
+
     def update(self, instance, validated_data):
         # Remove user_id if present (can't change user)
-        validated_data.pop('user_id', None)
+        validated_data.pop("user_id", None)
         return super().update(instance, validated_data)
 
 
 class StudentProfileSerializer(DynamicFieldsModelSerializer):
     """
     Student profile serializer with academic and parent information.
+    All fields are optional to allow students to create their own profile.
     """
 
-    user_id = serializers.IntegerField(write_only=True, required=True)
+    user_id = serializers.IntegerField(write_only=True, required=False)
     user = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -252,7 +283,20 @@ class StudentProfileSerializer(DynamicFieldsModelSerializer):
             "medical_conditions",
             "extracurricular_activities",
         ]
-        read_only_fields = ["created_at", "updated_at", "created_by", "updated_by", "user"]
+        read_only_fields = [
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+            "user",
+        ]
+        extra_kwargs = {
+            "grade_level": {"required": False, "allow_blank": True},
+            "admission_date": {"required": False, "allow_null": True},
+            "father_name": {"required": False, "allow_blank": True},
+            "mother_name": {"required": False, "allow_blank": True},
+            "guardian_phone": {"required": False, "allow_blank": True},
+        }
 
     def validate_user_id(self, value):
         try:
@@ -262,25 +306,38 @@ class StudentProfileSerializer(DynamicFieldsModelSerializer):
         except User.DoesNotExist:
             raise serializers.ValidationError("User does not exist")
         return value
-    
+
+    def validate(self, attrs):
+        # If user_id is not provided, check if we have it in context (for self-registration)
+        if "user_id" not in attrs:
+            request = self.context.get("request")
+            if request and hasattr(request, "user") and request.user.is_authenticated:
+                attrs["user_id"] = request.user.id
+            else:
+                raise serializers.ValidationError(
+                    {"user_id": "This field is required."}
+                )
+        return attrs
+
     def create(self, validated_data):
-        user_id = validated_data.pop('user_id')
+        user_id = validated_data.pop("user_id")
         user = User.objects.get(id=user_id)
-        validated_data['user'] = user
+        validated_data["user"] = user
         return super().create(validated_data)
-    
+
     def update(self, instance, validated_data):
         # Remove user_id if present (can't change user)
-        validated_data.pop('user_id', None)
+        validated_data.pop("user_id", None)
         return super().update(instance, validated_data)
 
 
 class TeacherProfileSerializer(DynamicFieldsModelSerializer):
     """
     Teacher profile serializer with professional and employment information.
+    All fields are optional to allow teachers to create their own profile.
     """
 
-    user_id = serializers.IntegerField(write_only=True, required=True)
+    user_id = serializers.IntegerField(write_only=True, required=False)
     user = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
@@ -302,7 +359,19 @@ class TeacherProfileSerializer(DynamicFieldsModelSerializer):
             "certifications",
             "training_completed",
         ]
-        read_only_fields = ["created_at", "updated_at", "created_by", "updated_by", "user"]
+        read_only_fields = [
+            "created_at",
+            "updated_at",
+            "created_by",
+            "updated_by",
+            "user",
+        ]
+        extra_kwargs = {
+            "department": {"required": False, "allow_blank": True},
+            "subject_specialization": {"required": False, "allow_blank": True},
+            "qualification": {"required": False, "allow_blank": True},
+            "hire_date": {"required": False, "allow_null": True},
+        }
 
     def validate_user_id(self, value):
         try:
@@ -312,16 +381,28 @@ class TeacherProfileSerializer(DynamicFieldsModelSerializer):
         except User.DoesNotExist:
             raise serializers.ValidationError("User does not exist")
         return value
-    
+
+    def validate(self, attrs):
+        # If user_id is not provided, check if we have it in context (for self-registration)
+        if "user_id" not in attrs:
+            request = self.context.get("request")
+            if request and hasattr(request, "user") and request.user.is_authenticated:
+                attrs["user_id"] = request.user.id
+            else:
+                raise serializers.ValidationError(
+                    {"user_id": "This field is required."}
+                )
+        return attrs
+
     def create(self, validated_data):
-        user_id = validated_data.pop('user_id')
+        user_id = validated_data.pop("user_id")
         user = User.objects.get(id=user_id)
-        validated_data['user'] = user
+        validated_data["user"] = user
         return super().create(validated_data)
-    
+
     def update(self, instance, validated_data):
         # Remove user_id if present (can't change user)
-        validated_data.pop('user_id', None)
+        validated_data.pop("user_id", None)
         return super().update(instance, validated_data)
 
 
@@ -330,7 +411,7 @@ class Self(serializers.Serializer):
         request = self.context.get("request")
         if request and hasattr(request, "user"):
             user = request.user
-            
+
             # Get enrolled courses for students
             enrolled_courses = []
             if user.role == "student" and user.enrolled_courses.exists():
@@ -340,9 +421,11 @@ class Self(serializers.Serializer):
                         "title": course.title,
                         "course_type": course.course_type,
                     }
-                    for course in user.enrolled_courses.filter(is_active=True, is_deleted=False)
+                    for course in user.enrolled_courses.filter(
+                        is_active=True, is_deleted=False
+                    )
                 ]
-            
+
             return {
                 "username": user.username,
                 "email": user.email,
@@ -353,6 +436,7 @@ class Self(serializers.Serializer):
                 "branch_id": user.branch.id if user.branch else None,
                 "enrolled_courses": enrolled_courses,
                 "is_active": user.is_active,
+                "must_change_password": user.must_change_password,
                 "student_id": user.student_id if user.role == "student" else None,
                 "employee_id": user.employee_id
                 if user.role in ["superadmin", "admin", "teacher"]

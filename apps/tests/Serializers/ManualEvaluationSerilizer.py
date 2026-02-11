@@ -36,11 +36,11 @@ class ManualEvaluationSerializer(DynamicFieldsModelSerializer):
 
     def validate_unique_together(self, data):
         answer = data.get("answer", self.instance.answer if self.instance else None)
-        checked_by = data.get("checked_by", self.instance.checked_by if self.instance else None)
-
-        qs = ManualEvaluation.objects.filter(
-            answer=answer, checked_by=checked_by
+        checked_by = data.get(
+            "checked_by", self.instance.checked_by if self.instance else None
         )
+
+        qs = ManualEvaluation.objects.filter(answer=answer, checked_by=checked_by)
 
         if self.instance:
             qs = qs.exclude(id=self.instance.id)

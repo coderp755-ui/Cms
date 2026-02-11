@@ -19,10 +19,16 @@ class BandScoreMappingSerializer(DynamicFieldsModelSerializer):
         read_only_fields = ["created_at", "updated_at", "created_by", "updated_by"]
 
     def validate_unique_together(self, data):
-        test_type = data.get("test_type", self.instance.test_type if self.instance else None)
+        test_type = data.get(
+            "test_type", self.instance.test_type if self.instance else None
+        )
         section = data.get("section", self.instance.section if self.instance else None)
-        min_score = data.get("min_score", self.instance.min_score if self.instance else None)
-        max_score = data.get("max_score", self.instance.max_score if self.instance else None)
+        min_score = data.get(
+            "min_score", self.instance.min_score if self.instance else None
+        )
+        max_score = data.get(
+            "max_score", self.instance.max_score if self.instance else None
+        )
 
         qs = BandScoreMapping.objects.filter(
             test_type=test_type,
@@ -35,9 +41,7 @@ class BandScoreMappingSerializer(DynamicFieldsModelSerializer):
             qs = qs.exclude(id=self.instance.id)
 
         if qs.exists():
-            raise serializers.ValidationError(
-                "This band score mapping already exists."
-            )
+            raise serializers.ValidationError("This band score mapping already exists.")
         return data
 
     def validate(self, data):

@@ -16,12 +16,12 @@ class Course(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin)
     description = models.TextField()
     course_type = models.CharField(max_length=10, choices=COURSE_TYPE)
     branch = models.ForeignKey(
-        'acounts.Branch',
+        "acounts.Branch",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='courses',
-        help_text='Branch assignment for course'
+        related_name="courses",
+        help_text="Branch assignment for course",
     )
 
     is_active = models.BooleanField(default=True)
@@ -91,21 +91,29 @@ class Lesson(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin)
         return self.title
 
 
-class LessonProgress(BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin):
+class LessonProgress(
+    BaseTimeStampModelMixin, BaseAuditModelMixin, SoftDeleteModelMixin
+):
     from apps.acounts.models import User
-    
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="lesson_progress")
-    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name="progress")
-    
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="lesson_progress"
+    )
+    lesson = models.ForeignKey(
+        Lesson, on_delete=models.CASCADE, related_name="progress"
+    )
+
     is_completed = models.BooleanField(default=False)
     completed_at = models.DateTimeField(null=True, blank=True)
-    
+
     class Meta:
         db_table = "lesson_progress"
         constraints = [
-            models.UniqueConstraint(fields=['user', 'lesson'], name='unique_user_lesson_progress')
+            models.UniqueConstraint(
+                fields=["user", "lesson"], name="unique_user_lesson_progress"
+            )
         ]
         ordering = ("-created_at",)
-    
+
     def __str__(self):
         return f"{self.user.username} - {self.lesson.title}"
