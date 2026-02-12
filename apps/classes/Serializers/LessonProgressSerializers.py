@@ -21,10 +21,26 @@ class LessonProgressSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "user",
+            "user_username",
             "created_at",
             "updated_at",
             "completed_at",
         ]
+
+    def validate(self, attrs):
+        """Validate that user is automatically set to authenticated user."""
+        # If this is a create/update, ensure user is set to authenticated user
+        if self.instance is None:  # Creating new
+            if 'user' not in attrs or attrs.get('user') is None:
+                # Set user to authenticated user
+                attrs['user'] = self.context['request'].user
+            # Validate that user matches authenticated user (students can only update their own)
+            elif attrs.get('user') != self.context['request'].user:
+                raise serializers.ValidationError({
+                    "user": ["You can only update your own lesson progress."]
+                })
+        return attrs
 
     def create(self, validated_data):
         """Create or update lesson progress."""
