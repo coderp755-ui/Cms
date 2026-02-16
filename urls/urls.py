@@ -16,19 +16,6 @@ urlpatterns = [
     # path('admin/', admin.site.urls),
     path("login/", CustomTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
-    path("schema/", SpectacularAPIView.as_view(), name="schema"),
-    # Swagger UI documentation
-    path(
-        "api/docs/swagger/",
-        SpectacularSwaggerView.as_view(url_name="schema"),
-        name="swagger-ui",
-    ),
-    # ReDoc documentation
-    path(
-        "api/docs/redoc/",
-        SpectacularRedocView.as_view(url_name="schema"),
-        name="redoc",
-    ),
     path("", include(Accounts_urls)),
     path("", include(Classes_urls)),
     path("", include(Tests_urls)),
@@ -40,6 +27,18 @@ if settings.DEBUG:
 
     urlpatterns = [
         path("__debug__/", include(debug_toolbar.urls)),
+        # API Documentation (only in development)
+        path("schema/", SpectacularAPIView.as_view(), name="schema"),
+        path(
+            "api/docs/swagger/",
+            SpectacularSwaggerView.as_view(url_name="schema"),
+            name="swagger-ui",
+        ),
+        path(
+            "api/docs/redoc/",
+            SpectacularRedocView.as_view(url_name="schema"),
+            name="redoc",
+        ),
     ] + urlpatterns
 
     # Serve media files in development
